@@ -42,3 +42,12 @@ replay_pid*
 *.swp
 *.swo
 *~
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# Windows special file
+nul
