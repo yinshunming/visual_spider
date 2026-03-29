@@ -1,7 +1,6 @@
 package com.visualspider.domain;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 /**
  * 字段规则 Entity
@@ -10,18 +9,17 @@ import java.util.List;
 public class FieldRule {
 
     private Long id;
-    private String fieldCode;               // 字段代码，如 title, content, author
-    private List<SelectorDef> selectors;     // 选择器数组（支持多个候选项按顺序尝试）
-    private ExtractType extractType;         // TEXT / HTML / ATTR
-    private List<FieldValidation> validations; // 校验规则数组
-    private Long taskId;                     // 关联的抓取任务 ID
+    private String fieldCode;
+    private String selectors;      // JSON string of List<SelectorDef>
+    private String extractType;    // ExtractType enum as string
+    private String validations;    // JSON string of List<FieldValidation>
+    private Long taskId;
     private LocalDateTime createdAt;
 
     public FieldRule() {}
 
-    public FieldRule(Long id, String fieldCode, List<SelectorDef> selectors,
-                     ExtractType extractType, List<FieldValidation> validations,
-                     Long taskId, LocalDateTime createdAt) {
+    public FieldRule(Long id, String fieldCode, String selectors, String extractType,
+                     String validations, Long taskId, LocalDateTime createdAt) {
         this.id = id;
         this.fieldCode = fieldCode;
         this.selectors = selectors;
@@ -38,26 +36,18 @@ public class FieldRule {
     public String getFieldCode() { return fieldCode; }
     public void setFieldCode(String fieldCode) { this.fieldCode = fieldCode; }
 
-    public List<SelectorDef> getSelectors() { return selectors; }
-    public void setSelectors(List<SelectorDef> selectors) { this.selectors = selectors; }
+    public String getSelectors() { return selectors; }
+    public void setSelectors(String selectors) { this.selectors = selectors; }
 
-    public ExtractType getExtractType() { return extractType; }
-    public void setExtractType(ExtractType extractType) { this.extractType = extractType; }
+    public String getExtractType() { return extractType; }
+    public void setExtractType(String extractType) { this.extractType = extractType; }
 
-    public List<FieldValidation> getValidations() { return validations; }
-    public void setValidations(List<FieldValidation> validations) { this.validations = validations; }
+    public String getValidations() { return validations; }
+    public void setValidations(String validations) { this.validations = validations; }
 
     public Long getTaskId() { return taskId; }
     public void setTaskId(Long taskId) { this.taskId = taskId; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
-    /**
-     * 从 NodeSelection 构建 FieldRule（用于会话确认后的规则转换）
-     */
-    public static FieldRule fromNodeSelection(String fieldCode, List<SelectorDef> selectors,
-                                              ExtractType extractType, List<FieldValidation> validations) {
-        return new FieldRule(null, fieldCode, selectors, extractType, validations, null, LocalDateTime.now());
-    }
 }

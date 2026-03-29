@@ -3,9 +3,9 @@ spring:
     name: visual-spider
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/visual_spider
+    url: jdbc:postgresql://localhost:5432/postgres
     username: postgres
-    password: postgres
+    password: 123456
     driver-class-name: org.postgresql.Driver
 
   thymeleaf:

@@ -31,7 +31,7 @@ public class SelectorDefListTypeHandler implements TypeHandler<List<SelectorDef>
         } else {
             try {
                 String json = OBJECT_MAPPER.writeValueAsString(param);
-                ps.setString(i, json);
+                ps.setObject(i, json);
             } catch (JsonProcessingException e) {
                 throw new TypeException("Failed to serialize SelectorDef list", e);
             }

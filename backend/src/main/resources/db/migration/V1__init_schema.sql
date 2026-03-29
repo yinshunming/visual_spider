@@ -8,9 +8,9 @@ DROP TABLE IF EXISTS field_rule CASCADE;
 CREATE TABLE field_rule (
     id BIGSERIAL PRIMARY KEY,
     field_code VARCHAR(100) NOT NULL,           -- 字段代码，如 title, content, author
-    selectors JSONB NOT NULL,                   -- 选择器数组，支持多个候选项
+    selectors TEXT NOT NULL,                    -- 选择器数组 JSON（支持多个候选项）
     extract_type VARCHAR(20) NOT NULL DEFAULT 'TEXT',  -- TEXT / HTML / ATTR
-    validations JSONB DEFAULT '[]'::jsonb,      -- 校验规则数组
+    validations TEXT DEFAULT '[]',              -- 校验规则数组 JSON
     task_id BIGINT,                             -- 关联的抓取任务 ID（可为空，手动关联）
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

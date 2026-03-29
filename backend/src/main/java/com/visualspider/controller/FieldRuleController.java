@@ -1,13 +1,13 @@
 package com.visualspider.controller;
 
-import com.visualspider.domain.FieldRule;
-import com.visualspider.repository.FieldRuleMapper;
+import com.visualspider.dto.FieldRuleRequest;
+import com.visualspider.dto.FieldRuleResponse;
+import com.visualspider.service.FieldRuleService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -18,10 +18,10 @@ import java.util.List;
 public class FieldRuleController {
 
     private static final Logger log = LoggerFactory.getLogger(FieldRuleController.class);
-    private final FieldRuleMapper fieldRuleMapper;
+    private final FieldRuleService fieldRuleService;
 
-    public FieldRuleController(FieldRuleMapper fieldRuleMapper) {
-        this.fieldRuleMapper = fieldRuleMapper;
+    public FieldRuleController(FieldRuleService fieldRuleService) {
+        this.fieldRuleService = fieldRuleService;
     }
 
     /**
@@ -30,18 +30,12 @@ public class FieldRuleController {
      * Body: [{fieldCode, selectors, extractType, validations, taskId}, ...]
      */
     @PostMapping("/batch")
-    public ResponseEntity<List<Long>> saveBatch(@RequestBody List<FieldRule> rules) {
-        if (rules == null || rules.isEmpty()) {
+    public ResponseEntity<List<Long>> saveBatch(@RequestBody List<FieldRuleRequest> requests) {
+        if (requests == null || requests.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
-
-        List<Long> ids = rules.stream().map(rule -> {
-            rule.setCreatedAt(LocalDateTime.now());
-            fieldRuleMapper.insert(rule);
-            log.info("saved_field_rule id={} fieldCode={}", rule.getId(), rule.getFieldCode());
-            return rule.getId();
-        }).toList();
-
+        List<Long> ids = fieldRuleService.saveBatch(requests);
+        log.info("save_batch count={}", ids.size());
         return ResponseEntity.ok(ids);
     }
 
@@ -50,8 +44,8 @@ public class FieldRuleController {
      * GET /api/field-rules
      */
     @GetMapping
-    public ResponseEntity<List<FieldRule>> listAll() {
-        return ResponseEntity.ok(fieldRuleMapper.findAll());
+    public ResponseEntity<List<FieldRuleResponse>> listAll() {
+        return ResponseEntity.ok(fieldRuleService.listAll());
     }
 
     /**
@@ -59,8 +53,8 @@ public class FieldRuleController {
      * GET /api/field-rules?taskId={taskId}
      */
     @GetMapping(params = "taskId")
-    public ResponseEntity<List<FieldRule>> listByTaskId(@RequestParam Long taskId) {
-        return ResponseEntity.ok(fieldRuleMapper.findByTaskId(taskId));
+    public ResponseEntity<List<FieldRuleResponse>> listByTaskId(@RequestParam Long taskId) {
+        return ResponseEntity.ok(fieldRuleService.listByTaskId(taskId));
     }
 
     /**
@@ -69,8 +63,7 @@ public class FieldRuleController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        fieldRuleMapper.deleteById(id);
-        log.info("deleted_field_rule id={}", id);
+        fieldRuleService.deleteById(id);
         return ResponseEntity.ok().build();
     }
 }

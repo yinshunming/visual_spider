@@ -1,11 +1,18 @@
 package com.visualspider.service;
 
-import com.visualspider.domain.ExtractType;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.visualspider.domain.FieldValidation;
+import com.visualspider.domain.FieldRule;
+import com.visualspider.dto.FieldRuleRequest;
+import com.visualspider.dto.FieldRuleResponse;
+import com.visualspider.repository.FieldRuleMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -14,12 +21,109 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 /**
- * 字段规则校验服务
+ * FieldRule Service - CRUD + JSON 序列化 + 校验
  */
 @Service
 public class FieldRuleService {
 
     private static final Logger log = LoggerFactory.getLogger(FieldRuleService.class);
+
+    private final FieldRuleMapper fieldRuleMapper;
+    private final ObjectMapper objectMapper;
+
+    public FieldRuleService(FieldRuleMapper fieldRuleMapper, ObjectMapper objectMapper) {
+        this.fieldRuleMapper = fieldRuleMapper;
+        this.objectMapper = objectMapper;
+    }
+
+    // ==================== CRUD ====================
+
+    /**
+     * 批量保存 FieldRule（从 DTO 序列化）
+     */
+    public List<Long> saveBatch(List<FieldRuleRequest> requests) {
+        LocalDateTime now = LocalDateTime.now();
+        return requests.stream().map(req -> {
+            FieldRule rule = new FieldRule();
+            rule.setFieldCode(req.fieldCode());
+            rule.setSelectors(toJson(req.selectors()));
+            rule.setExtractType(req.extractType());
+            rule.setValidations(toJson(req.validations()));
+            rule.setTaskId(req.taskId());
+            rule.setCreatedAt(now);
+            fieldRuleMapper.insert(rule);
+            log.info("saved_field_rule id={} fieldCode={}", rule.getId(), rule.getFieldCode());
+            return rule.getId();
+        }).toList();
+    }
+
+    /**
+     * 查询所有规则
+     */
+    public List<FieldRuleResponse> listAll() {
+        List<FieldRule> rules = fieldRuleMapper.findAll();
+        return rules.stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * 按 taskId 查询
+     */
+    public List<FieldRuleResponse> listByTaskId(Long taskId) {
+        List<FieldRule> rules = fieldRuleMapper.findByTaskId(taskId);
+        return rules.stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * 删除规则
+     */
+    public void deleteById(Long id) {
+        fieldRuleMapper.deleteById(id);
+        log.info("deleted_field_rule id={}", id);
+    }
+
+    // ==================== JSON 序列化 ====================
+
+    private String toJson(Object obj) {
+        if (obj == null) {
+            return "[]";
+        }
+        try {
+            return objectMapper.writeValueAsString(obj);
+        } catch (JsonProcessingException e) {
+            log.error("json_serialize_failed obj={}", obj, e);
+            throw new RuntimeException("JSON serialization failed for: " + obj, e);
+        }
+    }
+
+    private <T> T parseJson(String json, TypeReference<T> typeRef) {
+        if (json == null || json.isBlank()) {
+            try {
+                return typeRef.getType().equals(String.class) ? (T) "[]" : (T) List.of();
+            } catch (Exception e) {
+                return (T) List.of();
+            }
+        }
+        try {
+            return objectMapper.readValue(json, typeRef);
+        } catch (JsonProcessingException e) {
+            log.error("json_parse_failed json={}", json, e);
+            return (T) List.of();
+        }
+    }
+
+    private FieldRuleResponse toResponse(FieldRule rule) {
+        return new FieldRuleResponse(
+            rule.getId(),
+            rule.getFieldCode(),
+            parseJson(rule.getSelectors(), new TypeReference<>() {}),
+            rule.getExtractType(),
+            parseJson(rule.getValidations(), new TypeReference<>() {}),
+            rule.getTaskId(),
+            rule.getCreatedAt()
+        );
+    }
+
+    // ==================== 校验逻辑 ====================
 
     /**
      * 校验提取结果
