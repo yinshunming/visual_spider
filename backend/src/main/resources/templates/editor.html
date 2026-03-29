@@ -176,8 +176,8 @@
             
             eventSource = new EventSource(`${API_BASE}/session/${currentSessionId}/events`);
             
-            eventSource.onmessage = function(event) {
-                const selection = JSON.parse(event.data);
+            eventSource.addEventListener('selection', function(e) {
+                const selection = JSON.parse(e.data);
                 
                 // 检查是否已存在
                 const existingIndex = selections.findIndex(s => 
@@ -193,7 +193,7 @@
                 
                 renderSelections();
                 updateJsonOutput();
-            };
+            });
             
             eventSource.onerror = function() {
                 document.getElementById('statusIndicator').classList.remove('connected');

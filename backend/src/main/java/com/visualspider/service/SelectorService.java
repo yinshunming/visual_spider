@@ -93,7 +93,7 @@ public class SelectorService {
                         data.attributes[a.name] = a.value;
                     }
                     
-                    await fetch('/api/selector/session/' + sessionId + '/select', {
+                    await fetch(window.SELECTOR_API_BASE + '/session/' + sessionId + '/select', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
@@ -124,8 +124,9 @@ public class SelectorService {
         // 创建 SSE emitters 列表
         emitters.put(session.getId(), new CopyOnWriteArrayList<>());
         
-        // 设置 session ID 到 window 对象
+        // 设置 session ID 和后端地址到 window 对象
         page.addInitScript("window.SELECTOR_SESSION_ID = '" + session.getId() + "';");
+        page.addInitScript("window.SELECTOR_API_BASE = 'http://localhost:8080/api/selector';");
         
         // 注入选择器生成 JS
         page.addInitScript(INJECTED_JS);
@@ -240,17 +241,27 @@ public class SelectorService {
      */
     private void broadcast(String sessionId, NodeSelection selection) {
         List<SseEmitter> sessionEmitters = emitters.get(sessionId);
-        if (sessionEmitters != null) {
-            for (SseEmitter emitter : sessionEmitters) {
-                try {
-                    emitter.send(SseEmitter.event()
+        if (sessionEmitters == null || sessionEmitters.isEmpty()) {
+            log.warn("broadcast no emitters for sessionId={}", sessionId);
+            return;
+        }
+
+        List<SseEmitter> failedEmitters = new CopyOnWriteArrayList<>();
+        for (SseEmitter emitter : sessionEmitters) {
+            try {
+                emitter.send(SseEmitter.event()
                         .name("selection")
                         .data(selection));
-                } catch (IOException e) {
-                    emitter.complete();
-                    sessionEmitters.remove(emitter);
-                }
+            } catch (IOException e) {
+                log.warn("SSE send failed, marking for removal: {}", e.getMessage());
+                failedEmitters.add(emitter);
             }
+        }
+
+        // 迭代结束后统一清理失败的 emitter
+        for (SseEmitter failed : failedEmitters) {
+            failed.complete();
+            sessionEmitters.remove(failed);
         }
     }
 }
