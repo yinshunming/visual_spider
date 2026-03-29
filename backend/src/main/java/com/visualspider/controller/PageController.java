@@ -1,0 +1,53 @@
+package com.visualspider.controller;
+
+import com.visualspider.domain.Article;
+import com.visualspider.domain.CrawlSession;
+import com.visualspider.domain.CrawlTask;
+import com.visualspider.repository.ArticleMapper;
+import com.visualspider.repository.CrawlSessionMapper;
+import com.visualspider.repository.CrawlTaskMapper;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+
+import java.util.List;
+
+@Controller
+public class PageController {
+
+    private final CrawlTaskMapper crawlTaskMapper;
+    private final ArticleMapper articleMapper;
+    private final CrawlSessionMapper crawlSessionMapper;
+
+    public PageController(CrawlTaskMapper crawlTaskMapper, ArticleMapper articleMapper, CrawlSessionMapper crawlSessionMapper) {
+        this.crawlTaskMapper = crawlTaskMapper;
+        this.articleMapper = articleMapper;
+        this.crawlSessionMapper = crawlSessionMapper;
+    }
+
+    @GetMapping("/")
+    public String index() {
+        return "index";
+    }
+
+    @GetMapping("/tasks")
+    public String tasks(Model model) {
+        List<CrawlTask> tasks = crawlTaskMapper.findAll();
+        model.addAttribute("tasks", tasks);
+        return "tasks/index";
+    }
+
+    @GetMapping("/articles")
+    public String articles(Model model) {
+        List<Article> articles = articleMapper.findAll();
+        model.addAttribute("articles", articles);
+        return "articles/index";
+    }
+
+    @GetMapping("/sessions")
+    public String sessions(Model model) {
+        List<CrawlSession> sessions = crawlSessionMapper.findAll();
+        model.addAttribute("sessions", sessions);
+        return "sessions/index";
+    }
+}
