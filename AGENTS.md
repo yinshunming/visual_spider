@@ -99,27 +99,27 @@ visual_spider/
 ### 后端 (Spring Boot)
 
 ```bash
-# 编译打包
-./mvnw clean package -DskipTests
+# 编译打包（项目用 mvn 非 mvnw）
+mvn clean package -DskipTests
 
 # 运行测试
-./mvnw test
+mvn test
 
 # 运行单个测试类
-./mvnw test -Dtest=MarketServiceTest
+mvn test -Dtest=MarketServiceTest
 
 # 运行单个测试方法
-./mvnw test -Dtest=MarketServiceTest#createMarket
+mvn test -Dtest=MarketServiceTest#createMarket
 
 # 跳过测试打包
-./mvnw clean package -DskipTests
+mvn clean package -DskipTests
 
 # 代码检查 (需要配置 checkstyle/spotless)
-./mvnw checkstyle:check
-./mvnw spotless:check
+mvn checkstyle:check
+mvn spotless:check
 
 # 格式化代码
-./mvnw spotless:apply
+mvn spotless:apply
 ```
 
 ### 前端 (Vue)
