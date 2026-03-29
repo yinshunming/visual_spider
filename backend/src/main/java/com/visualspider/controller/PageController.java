@@ -9,6 +9,7 @@ import com.visualspider.repository.CrawlTaskMapper;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import java.util.List;
 
@@ -49,5 +50,17 @@ public class PageController {
         List<CrawlSession> sessions = crawlSessionMapper.findAll();
         model.addAttribute("sessions", sessions);
         return "sessions/index";
+    }
+
+    @GetMapping("/editor")
+    public String editor(Model model) {
+        return "editor";
+    }
+
+    @GetMapping("/editor/{taskId}")
+    public String editorWithTask(@PathVariable Long taskId, Model model) {
+        CrawlTask task = crawlTaskMapper.findById(taskId).orElse(null);
+        model.addAttribute("task", task);
+        return "editor";
     }
 }

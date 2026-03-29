@@ -124,21 +124,27 @@
 
 ### M2: Playwright 集成 + URL 渲染 + 元素点击
 
-**目标**：在浏览器中打开真实 URL，点击页面元素生成 5 个候选 selector。
+**目标**：在浏览器中打开真实 URL，用户点击页面元素，浏览器端生成 selector 候选，后端仅存储。
+
+**设计简化**：
+- 浏览器端注入 JS 生成 selector 候选（不依赖后端验证）
+- 后端仅存储用户选择的 selector（内存，非持久化）
+- SSE 实时推送节点信息到监控面板
 
 **范围**：
-- [ ] Playwright for Java 依赖引入
-- [ ] Playwright 配置类（独立浏览器进程模式）
-- [ ] PlaywrightService 服务类（页面加载、元素点击拦截）
-- [ ] 元素信息收集（tag, class, id, attributes, text content, parent chain）
-- [ ] 5 个候选 selector 生成逻辑
-- [ ] 弹窗 UI（显示 5 个候选 + 提取方式选择）
+- [x] SelectorSession 内存实体
+- [x] `/api/selector/start` — 启动 Playwright 浏览器，注入 JS
+- [x] 注入的 JS — 监听 click，生成 selector 候选
+- [x] `/api/selector/session/{id}/select` — 接收并存储节点选择
+- [x] `/api/selector/session/{id}/events` — SSE 实时推送
+- [x] 监控面板 UI — 实时展示节点信息、候选 selector、提取方式选择
 
 **验收标准**：
-- 输入 `https://news.ycombinator.com` 能渲染页面
-- 点击任意元素，弹出 5 个候选 selector
-- 选择一个 selector + 提取方式后，提取到对应文本/属性
-- `CrawlSession` 记录每次操作的 URL 和时间
+- 访问 `/editor/start?url=https://news.ycombinator.com` 能打开 Playwright 浏览器
+- 在 Playwright 浏览器中点击任意元素
+- 监控面板实时显示该元素的候选 selector
+- 用户可选择 selector 和提取方式
+- 可完成选择并返回 JSON
 
 ---
 
