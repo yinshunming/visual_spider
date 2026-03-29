@@ -2,8 +2,15 @@ package com.visualspider.service;
 
 import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.Page;
+import com.microsoft.playwright.PlaywrightException;
+import com.visualspider.domain.ExtractType;
+import com.visualspider.domain.FieldValidation;
+import com.visualspider.domain.SelectorDef;
 import com.visualspider.domain.SelectorSession;
 import com.visualspider.dto.NodeSelection;
+import com.visualspider.dto.PreviewRequest;
+import com.visualspider.dto.PreviewResult;
+import com.visualspider.dto.PreviewResult.SelectorAttempt;
 import com.visualspider.dto.SelectorResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -114,26 +122,14 @@ public class SelectorService {
      * 启动新的选择会话
      */
     public String startSession(String url) throws Exception {
-        // 创建新页面
         Page page = browser.newPage();
-        
-        // 创建 session
         SelectorSession session = new SelectorSession(url, page);
         sessions.put(session.getId(), session);
-        
-        // 创建 SSE emitters 列表
         emitters.put(session.getId(), new CopyOnWriteArrayList<>());
-        
-        // 设置 session ID 和后端地址到 window 对象
         page.addInitScript("window.SELECTOR_SESSION_ID = '" + session.getId() + "';");
         page.addInitScript("window.SELECTOR_API_BASE = 'http://localhost:8080/api/selector';");
-        
-        // 注入选择器生成 JS
         page.addInitScript(INJECTED_JS);
-        
-        // 导航到 URL
         page.navigate(url);
-        
         log.info("start_session id={} url={}", session.getId(), url);
         return session.getId();
     }
@@ -151,25 +147,119 @@ public class SelectorService {
     }
 
     /**
-     * 确认选择（设置字段名、提取类型等）
+     * 确认选择（设置 M3 完整规则结构：fieldCode + selectors[] + validations[]）
      */
-    public void confirmSelection(String sessionId, int index, String fieldName, 
-                                 String extractionType, String attributeName) {
+    public void confirmSelection(String sessionId, int index, String fieldCode,
+                                 String extractionType, String attributeName,
+                                 List<SelectorDef> selectors,
+                                 List<FieldValidation> validations) {
         SelectorSession session = sessions.get(sessionId);
         if (session != null && index >= 0 && index < session.getSelections().size()) {
             NodeSelection selection = session.getSelections().get(index);
-            selection.setFieldName(fieldName);
+            selection.setFieldCode(fieldCode);
             selection.setExtractionType(extractionType);
             selection.setAttributeName(attributeName);
-            
-            // 默认选择第一个候选
-            if (selection.getCandidates() != null && !selection.getCandidates().isEmpty()) {
-                selection.setSelectedSelector(selection.getCandidates().get(0).getSelector());
-                selection.setSelectorType(selection.getCandidates().get(0).getSelectorType());
+            selection.setSelectors(selectors);
+            selection.setValidations(validations);
+
+            // 兼容：如果 selectors 为空但有候选，默认取第一个
+            if ((selectors == null || selectors.isEmpty())
+                    && selection.getCandidates() != null
+                    && !selection.getCandidates().isEmpty()) {
+                var first = selection.getCandidates().get(0);
+                selection.setSelectors(List.of(new SelectorDef(first.getSelector(), first.getSelectorType())));
+                selection.setSelectedSelector(first.getSelector());
+                selection.setSelectorType(first.getSelectorType());
             }
-            
+
             broadcast(sessionId, selection);
-            log.info("confirm_selection sessionId={} index={} fieldName={}", sessionId, index, fieldName);
+            log.info("confirm_selection sessionId={} index={} fieldCode={}", sessionId, index, fieldCode);
+        }
+    }
+
+    /**
+     * 预览提取 - 使用 Playwright 实时尝试 selectors[]，返回第一个非空结果
+     */
+    public PreviewResult previewExtraction(PreviewRequest request) {
+        SelectorSession session = sessions.get(request.sessionId());
+        if (session == null) {
+            return PreviewResult.failure(request.fieldCode(), List.of(), "Session not found: " + request.sessionId());
+        }
+
+        Page page = (Page) session.getPage();
+        List<SelectorAttempt> attempts = new ArrayList<>();
+        String extractedValue = null;
+
+        for (SelectorDef selectorDef : request.selectors()) {
+            String selector = selectorDef.selector();
+            String selectorType = selectorDef.selectorType();
+            boolean succeeded = false;
+            String value = null;
+
+            try {
+                if ("XPATH".equalsIgnoreCase(selectorType)) {
+                    var locator = page.locator("xpath=" + selector);
+                    int count = locator.count();
+                    if (count > 0) {
+                        switch (request.extractType()) {
+                            case TEXT -> {
+                                value = locator.first().textContent();
+                                if (value != null && !value.isBlank()) succeeded = true;
+                            }
+                            case HTML -> {
+                                value = locator.first().innerHTML();
+                                if (value != null && !value.isBlank()) succeeded = true;
+                            }
+                            case ATTR -> {
+                                if (request.attributeName() != null && !request.attributeName().isBlank()) {
+                                    value = locator.first().getAttribute(request.attributeName());
+                                    if (value != null && !value.isBlank()) succeeded = true;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // CSS selector
+                    var locator = page.locator(selector);
+                    int count = locator.count();
+                    if (count > 0) {
+                        switch (request.extractType()) {
+                            case TEXT -> {
+                                value = locator.first().textContent();
+                                if (value != null && !value.isBlank()) succeeded = true;
+                            }
+                            case HTML -> {
+                                value = locator.first().innerHTML();
+                                if (value != null && !value.isBlank()) succeeded = true;
+                            }
+                            case ATTR -> {
+                                if (request.attributeName() != null && !request.attributeName().isBlank()) {
+                                    value = locator.first().getAttribute(request.attributeName());
+                                    if (value != null && !value.isBlank()) succeeded = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (PlaywrightException e) {
+                log.debug("preview_extraction_selector_failed selector={} error={}", selector, e.getMessage());
+                value = null;
+            }
+
+            attempts.add(new SelectorAttempt(selector, selectorType, value, succeeded));
+            if (succeeded) {
+                extractedValue = value;
+                break;
+            }
+        }
+
+        if (extractedValue != null) {
+            log.info("preview_extraction_success fieldCode={} value={}", request.fieldCode(),
+                extractedValue.length() > 50 ? extractedValue.substring(0, 50) + "..." : extractedValue);
+            return PreviewResult.success(request.fieldCode(), extractedValue, attempts);
+        } else {
+            log.warn("preview_extraction_all_failed fieldCode={}", request.fieldCode());
+            return PreviewResult.failure(request.fieldCode(), attempts, "所有选择器均未提取到内容");
         }
     }
 
@@ -179,15 +269,11 @@ public class SelectorService {
     public SelectorResult completeSession(String sessionId) {
         SelectorSession session = sessions.remove(sessionId);
         if (session != null) {
-            // 关闭浏览器页面
             if (session.getPage() != null) {
                 ((Page) session.getPage()).close();
             }
-            // 清理 emitters
             emitters.remove(sessionId);
-            
             log.info("complete_session sessionId={} selections={}", sessionId, session.getSelections().size());
-            
             return new SelectorResult(session.getId(), session.getUrl(), session.getSelections());
         }
         return null;
@@ -221,18 +307,12 @@ public class SelectorService {
         if (sessionEmitters != null) {
             sessionEmitters.add(emitter);
         }
-        
         emitter.onCompletion(() -> {
-            if (sessionEmitters != null) {
-                sessionEmitters.remove(emitter);
-            }
+            if (sessionEmitters != null) sessionEmitters.remove(emitter);
         });
         emitter.onTimeout(() -> {
-            if (sessionEmitters != null) {
-                sessionEmitters.remove(emitter);
-            }
+            if (sessionEmitters != null) sessionEmitters.remove(emitter);
         });
-        
         return emitter;
     }
 
@@ -245,20 +325,15 @@ public class SelectorService {
             log.warn("broadcast no emitters for sessionId={}", sessionId);
             return;
         }
-
         List<SseEmitter> failedEmitters = new CopyOnWriteArrayList<>();
         for (SseEmitter emitter : sessionEmitters) {
             try {
-                emitter.send(SseEmitter.event()
-                        .name("selection")
-                        .data(selection));
+                emitter.send(SseEmitter.event().name("selection").data(selection));
             } catch (IOException e) {
                 log.warn("SSE send failed, marking for removal: {}", e.getMessage());
                 failedEmitters.add(emitter);
             }
         }
-
-        // 迭代结束后统一清理失败的 emitter
         for (SseEmitter failed : failedEmitters) {
             failed.complete();
             sessionEmitters.remove(failed);

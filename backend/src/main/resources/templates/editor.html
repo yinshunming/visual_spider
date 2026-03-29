@@ -27,6 +27,8 @@
         .btn-success:hover { background: #229954; }
         .btn-danger { background: #e74c3c; }
         .btn-danger:hover { background: #c0392b; }
+        .btn-warning { background: #f39c12; }
+        .btn-warning:hover { background: #d68910; }
         
         .status-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
         .status-indicator { width: 12px; height: 12px; border-radius: 50%; background: #e74c3c; }
@@ -40,11 +42,15 @@
         .selection-item .selector-info { font-family: monospace; font-size: 12px; color: #7f8c8d; margin-top: 5px; word-break: break-all; }
         .selection-item .text-preview { font-size: 12px; color: #95a5a6; margin-top: 5px; max-height: 40px; overflow: hidden; }
         
-        .selection-controls { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+        .selection-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
         .selection-controls select, .selection-controls input { 
             padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; 
         }
         .selection-controls .btn { padding: 6px 12px; font-size: 13px; }
+        
+        .validation-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+        .validation-row label { font-size: 12px; color: #7f8c8d; }
+        .validation-row input { padding: 4px 8px; border: 1px solid #ddd; border-radius: 3px; font-size: 12px; width: 120px; }
         
         .candidates { margin-top: 10px; padding: 10px; background: white; border-radius: 4px; }
         .candidate { 
@@ -58,6 +64,10 @@
             border-radius: 3px; font-size: 10px; margin-right: 5px; 
         }
         
+        .preview-result { margin-top: 8px; padding: 8px; background: #fff3cd; border-radius: 4px; font-size: 13px; border: 1px solid #ffc107; }
+        .preview-result.success { background: #d4edda; border-color: #28a745; }
+        .preview-result.error { background: #f8d7da; border-color: #dc3545; }
+        
         .json-output { 
             background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 4px; 
             font-family: monospace; font-size: 13px; max-height: 300px; overflow-y: auto;
@@ -70,6 +80,7 @@
         @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60%, 100% { content: '...'; } }
         
         .info-box { background: #e8f4fd; border: 1px solid #b8daff; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; }
+        .button-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; }
     </style>
 </head>
 <body>
@@ -88,7 +99,7 @@
         <div class="card">
             <h2>会话控制</h2>
             <div class="info-box">
-                <strong>使用方法：</strong>输入 URL 启动会话，然后在打开的浏览器中点击页面元素。选中的元素会显示在下方，您可以确认或删除每个选择。
+                <strong>使用方法：</strong>输入 URL 启动会话，然后在打开的浏览器中点击页面元素。选中的元素会显示在下方，您可以确认或删除每个选择。确认后点击"预览"验证提取结果，满意后点击"保存规则"持久化。
             </div>
             <div class="url-input-group">
                 <input type="text" id="urlInput" placeholder="输入 URL，如 https://news.ycombinator.com" value="https://news.ycombinator.com">
@@ -110,28 +121,32 @@
         
         <div class="card">
             <h2>输出结果</h2>
-            <button class="btn btn-success" id="completeBtn" onclick="completeSession()" style="display:none; margin-bottom: 15px;">
-                完成选择
-            </button>
+            <div class="button-row">
+                <button class="btn btn-success" id="completeBtn" onclick="completeSession()" style="display:none;">
+                    完成选择
+                </button>
+                <button class="btn btn-warning" id="saveRulesBtn" onclick="saveFieldRules()" style="display:none;">
+                    保存规则
+                </button>
+            </div>
             <div class="json-output" id="jsonOutput">等待会话开始...</div>
         </div>
     </main>
     
     <script th:inline="javascript">
         const API_BASE = '/api/selector';
+        const FR_API_BASE = '/api/field-rules';
         let currentSessionId = null;
         let eventSource = null;
         let selections = [];
         
         const PREDEFINED_FIELDS = ['title', 'content', 'author', 'publish_date', 'source'];
-        const EXTRACTION_TYPES = ['text', 'attribute', 'html'];
+        const EXTRACTION_TYPES = ['TEXT', 'HTML', 'ATTR'];
+        const VALIDATION_TYPES = ['required', 'minLength', 'regex', 'datetimeParse'];
         
         async function startSession() {
             const url = document.getElementById('urlInput').value;
-            if (!url) {
-                alert('请输入 URL');
-                return;
-            }
+            if (!url) { alert('请输入 URL'); return; }
             
             try {
                 const response = await fetch(`${API_BASE}/start`, {
@@ -139,58 +154,41 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url: url })
                 });
-                
                 const data = await response.json();
-                
-                if (data.error) {
-                    alert('启动失败: ' + data.error);
-                    return;
-                }
+                if (data.error) { alert('启动失败: ' + data.error); return; }
                 
                 currentSessionId = data.sessionId;
                 selections = [];
                 
-                // 更新 UI
                 document.getElementById('startBtn').style.display = 'none';
                 document.getElementById('closeBtn').style.display = 'inline-block';
                 document.getElementById('completeBtn').style.display = 'inline-block';
+                document.getElementById('saveRulesBtn').style.display = 'inline-block';
                 document.getElementById('statusIndicator').classList.add('connected');
                 document.getElementById('statusText').textContent = '已连接 - 浏览器已打开，请在浏览器中点击元素';
                 
-                // 连接 SSE
                 connectSSE();
-                
-                // 更新选择列表
                 renderSelections();
                 updateJsonOutput();
-                
             } catch (e) {
                 alert('启动失败: ' + e.message);
             }
         }
         
         function connectSSE() {
-            if (eventSource) {
-                eventSource.close();
-            }
-            
+            if (eventSource) eventSource.close();
             eventSource = new EventSource(`${API_BASE}/session/${currentSessionId}/events`);
             
             eventSource.addEventListener('selection', function(e) {
                 const selection = JSON.parse(e.data);
-                
-                // 检查是否已存在
                 const existingIndex = selections.findIndex(s => 
-                    s.tagName === selection.tagName && 
-                    s.textContent === selection.textContent
+                    s.tagName === selection.tagName && s.textContent === selection.textContent
                 );
-                
                 if (existingIndex >= 0) {
                     selections[existingIndex] = selection;
                 } else {
                     selections.push(selection);
                 }
-                
                 renderSelections();
                 updateJsonOutput();
             });
@@ -210,12 +208,16 @@
             }
             
             listDiv.innerHTML = selections.map((sel, index) => {
-                const isConfirmed = !!sel.fieldName;
+                const isConfirmed = !!sel.fieldCode;
                 const selectedCandidate = sel.candidates && sel.candidates[0];
+                const selectors = sel.selectors && sel.selectors.length > 0 
+                    ? sel.selectors 
+                    : (selectedCandidate ? [{selector: selectedCandidate.selector, selectorType: selectedCandidate.selectorType}] : []);
+                const currentSelector = selectors[0] || {};
                 
                 return `
                     <div class="selection-item ${isConfirmed ? 'confirmed' : ''}" data-index="${index}">
-                        <div class="tag-name">&lt;${sel.tagName.toLowerCase()}&gt;</div>
+                        <div class="tag-name">&lt;${(sel.tagName || '').toLowerCase()}&gt;</div>
                         <div class="text-preview">${escapeHtml(sel.textContent || '')}</div>
                         
                         <div class="candidates">
@@ -233,33 +235,40 @@
                             <select id="field-${index}" onchange="updateSelection(${index})">
                                 <option value="">选择字段...</option>
                                 ${PREDEFINED_FIELDS.map(f => `
-                                    <option value="${f}" ${sel.fieldName === f ? 'selected' : ''}>${f}</option>
+                                    <option value="${f}" ${(sel.fieldCode || sel.fieldName) === f ? 'selected' : ''}>${f}</option>
                                 `).join('')}
                             </select>
                             
-                            <select id="extraction-${index}" onchange="updateSelection(${index})">
+                            <select id="extractType-${index}" onchange="updateSelection(${index})">
                                 ${EXTRACTION_TYPES.map(t => `
-                                    <option value="${t}" ${sel.extractionType === t ? 'selected' : ''}>${t}</option>
+                                    <option value="${t}" ${(sel.extractType || '').toUpperCase() === t ? 'selected' : ''}>${t}</option>
                                 `).join('')}
                             </select>
                             
-                            ${sel.extractionType === 'attribute' || sel.extractionType === 'html' ? '' : `
-                                <input type="text" id="attr-${index}" placeholder="属性名" 
-                                    value="${sel.attributeName || ''}" onchange="updateSelection(${index})"
-                                    style="display: ${sel.extractionType === 'attribute' ? 'inline-block' : 'none'};">
-                            `}
+                            <input type="text" id="attr-${index}" placeholder="属性名" 
+                                value="${sel.attributeName || ''}" onchange="updateSelection(${index})"
+                                style="display: ${(sel.extractType || '').toUpperCase() === 'ATTR' ? 'inline-block' : 'none'};">
                             
                             <button class="btn btn-success" onclick="confirmSelection(${index})" 
                                 ${isConfirmed ? 'disabled' : ''}>
                                 ${isConfirmed ? '已确认' : '确认'}
                             </button>
+                            <button class="btn btn-warning" onclick="previewExtraction(${index})" 
+                                ${!isConfirmed ? 'disabled' : ''}>
+                                预览
+                            </button>
                             <button class="btn btn-danger" onclick="removeSelection(${index})">删除</button>
                         </div>
                         
+                        ${!isConfirmed ? renderValidationControls(sel, index) : ''}
+                        
+                        ${sel._previewResult ? renderPreviewResult(sel._previewResult) : ''}
+                        
                         ${isConfirmed ? `
                             <div class="selector-info" style="margin-top: 10px; color: #27ae60;">
-                                ✓ 已确认: ${selectedCandidate ? selectedCandidate.selector : sel.selectedSelector} 
-                                (${sel.fieldName} - ${sel.extractionType})
+                                ✓ 已确认: ${currentSelector.selector || sel.selectedSelector || ''} 
+                                (${sel.fieldCode || sel.fieldName} - ${(sel.extractType || 'TEXT').toUpperCase()})
+                                ${sel.validations && sel.validations.length > 0 ? ' | 校验: ' + sel.validations.map(v => v.validationType).join(', ') : ''}
                             </div>
                         ` : ''}
                     </div>
@@ -267,11 +276,45 @@
             }).join('');
         }
         
+        function renderValidationControls(sel, index) {
+            const validations = sel.validations || [];
+            const requiredChecked = validations.some(v => v.validationType === 'required');
+            const minLengthVal = validations.find(v => v.validationType === 'minLength')?.value || '';
+            const regexVal = validations.find(v => v.validationType === 'regex')?.value || '';
+            const datetimeVal = validations.find(v => v.validationType === 'datetimeParse')?.value || '';
+            
+            return `
+                <div class="validation-row">
+                    <label><input type="checkbox" id="val-required-${index}" ${requiredChecked ? 'checked' : ''} onchange="updateSelection(${index})"> 必填</label>
+                    <label>最小长度: <input type="number" id="val-minLength-${index}" value="${minLengthVal}" min="1" placeholder="字符数" onchange="updateSelection(${index})"></label>
+                    <label>正则: <input type="text" id="val-regex-${index}" value="${regexVal}" placeholder="如 \\d+" onchange="updateSelection(${index})"></label>
+                    <label>日期格式: <input type="text" id="val-datetime-${index}" value="${datetimeVal}" placeholder="如 yyyy-MM-dd" onchange="updateSelection(${index})"></label>
+                </div>
+            `;
+        }
+        
+        function renderPreviewResult(result) {
+            const cls = result.success ? 'success' : 'error';
+            const value = result.value || '';
+            const truncated = value.length > 100 ? value.substring(0, 100) + '...' : value;
+            return `
+                <div class="preview-result ${cls}">
+                    <strong>预览结果 (${result.success ? '成功' : '失败'}):</strong>
+                    ${result.success ? escapeHtml(truncated) : result.error}
+                    ${result.validationErrors && result.validationErrors.length > 0 ? '<br><small style="color:#dc3545;">校验失败: ' + result.validationErrors.join(', ') + '</small>' : ''}
+                </div>
+            `;
+        }
+        
         function selectCandidate(selectionIndex, candidateIndex) {
             const sel = selections[selectionIndex];
             if (sel.candidates && sel.candidates[candidateIndex]) {
-                sel.selectedSelector = sel.candidates[candidateIndex].selector;
-                sel.selectorType = sel.candidates[candidateIndex].selectorType;
+                const c = sel.candidates[candidateIndex];
+                sel.selectedSelector = c.selector;
+                sel.selectorType = c.selectorType;
+                // 更新 selectors[0] 为选中的候选项
+                if (!sel.selectors) sel.selectors = [];
+                sel.selectors[0] = { selector: c.selector, selectorType: c.selectorType };
                 renderSelections();
                 updateJsonOutput();
             }
@@ -279,13 +322,27 @@
         
         function updateSelection(index) {
             const sel = selections[index];
-            sel.fieldName = document.getElementById(`field-${index}`).value;
-            sel.extractionType = document.getElementById(`extraction-${index}`).value;
+            sel.fieldCode = document.getElementById(`field-${index}`).value;
+            sel.extractType = document.getElementById(`extractType-${index}`).value;
+            sel.attributeName = document.getElementById(`attr-${index}`)?.value || '';
             
-            // 处理属性输入框显示
-            const attrInput = document.getElementById(`attr-${index}`);
-            if (attrInput) {
-                sel.attributeName = attrInput.value;
+            // 收集校验规则
+            const validations = [];
+            if (document.getElementById(`val-required-${index}`)?.checked) {
+                validations.push({ validationType: 'required', value: null });
+            }
+            const minLength = document.getElementById(`val-minLength-${index}`)?.value;
+            if (minLength) validations.push({ validationType: 'minLength', value: minLength });
+            const regex = document.getElementById(`val-regex-${index}`)?.value;
+            if (regex) validations.push({ validationType: 'regex', value: regex });
+            const datetime = document.getElementById(`val-datetime-${index}`)?.value;
+            if (datetime) validations.push({ validationType: 'datetimeParse', value: datetime });
+            sel.validations = validations;
+            
+            // 更新 selectors[0] 为当前选中的候选项
+            if (sel.candidates && sel.candidates.length > 0) {
+                const c = sel.candidates[0];
+                sel.selectors = [{ selector: sel.selectedSelector || c.selector, selectorType: sel.selectorType || c.selectorType }];
             }
             
             renderSelections();
@@ -294,10 +351,17 @@
         
         async function confirmSelection(index) {
             const sel = selections[index];
+            if (!sel.fieldCode) { alert('请先选择一个字段'); return; }
             
-            if (!sel.fieldName) {
-                alert('请先选择一个字段名');
-                return;
+            // 确保 selectors 有值
+            if (!sel.selectors || sel.selectors.length === 0) {
+                if (sel.candidates && sel.candidates.length > 0) {
+                    const c = sel.candidates[0];
+                    sel.selectors = [{ selector: sel.selectedSelector || c.selector, selectorType: sel.selectorType || c.selectorType }];
+                } else {
+                    alert('没有可用的选择器');
+                    return;
+                }
             }
             
             try {
@@ -306,15 +370,76 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         index: index,
-                        fieldName: sel.fieldName,
-                        extractionType: sel.extractionType,
-                        attributeName: sel.attributeName || ''
+                        fieldCode: sel.fieldCode,
+                        selectors: sel.selectors,
+                        extractionType: sel.extractType || 'TEXT',
+                        attributeName: sel.attributeName || '',
+                        validations: sel.validations || []
                     })
                 });
-                
                 renderSelections();
             } catch (e) {
                 alert('确认失败: ' + e.message);
+            }
+        }
+        
+        async function previewExtraction(index) {
+            const sel = selections[index];
+            if (!sel.fieldCode) { alert('请先确认字段'); return; }
+            
+            if (!sel.selectors || sel.selectors.length === 0) {
+                alert('没有可用的选择器');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/preview`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sessionId: currentSessionId,
+                        fieldCode: sel.fieldCode,
+                        selectors: sel.selectors,
+                        extractType: sel.extractType || 'TEXT',
+                        attributeName: sel.attributeName || '',
+                        validations: sel.validations || []
+                    })
+                });
+                
+                const result = await response.json();
+                sel._previewResult = result;
+                renderSelections();
+            } catch (e) {
+                alert('预览失败: ' + e.message);
+            }
+        }
+        
+        async function saveFieldRules() {
+            const confirmedRules = selections.filter(s => s.fieldCode);
+            if (confirmedRules.length === 0) {
+                alert('没有已确认的规则可保存');
+                return;
+            }
+            
+            const rules = confirmedRules.map(sel => ({
+                fieldCode: sel.fieldCode,
+                selectors: sel.selectors || [],
+                extractType: (sel.extractType || 'TEXT').toUpperCase(),
+                validations: sel.validations || [],
+                taskId: null  // 后续手动关联
+            }));
+            
+            try {
+                const response = await fetch(`${FR_API_BASE}/batch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(rules)
+                });
+                
+                const ids = await response.json();
+                alert(`保存成功！共 ${ids.length} 条规则已持久化到数据库`);
+            } catch (e) {
+                alert('保存失败: ' + e.message);
             }
         }
         
@@ -325,37 +450,32 @@
         }
         
         function updateJsonOutput() {
-            const confirmedSelections = selections.filter(s => s.fieldName);
+            const confirmedSelections = selections.filter(s => s.fieldCode);
             const output = {
                 sessionId: currentSessionId,
                 url: document.getElementById('urlInput').value,
-                selectors: confirmedSelections.map(s => ({
-                    fieldName: s.fieldName,
-                    selector: s.selectedSelector || (s.candidates && s.candidates[0] ? s.candidates[0].selector : ''),
-                    selectorType: s.selectorType || (s.candidates && s.candidates[0] ? s.candidates[0].selectorType : 'CSS'),
-                    extractionType: s.extractionType || 'text',
-                    attributeName: s.attributeName || null
-                }))
+                fieldRules: confirmedSelections.map(s => {
+                    const firstSelector = (s.selectors && s.selectors[0]) 
+                        || (s.candidates && s.candidates[0] ? { selector: s.candidates[0].selector, selectorType: s.candidates[0].selectorType } : {});
+                    return {
+                        fieldCode: s.fieldCode,
+                        selectors: s.selectors || [firstSelector],
+                        extractType: (s.extractType || 'TEXT').toUpperCase(),
+                        attributeName: s.attributeName || null,
+                        validations: s.validations || []
+                    };
+                })
             };
-            
             document.getElementById('jsonOutput').textContent = JSON.stringify(output, null, 2);
         }
         
         async function completeSession() {
             if (!currentSessionId) return;
-            
             try {
-                const response = await fetch(`${API_BASE}/session/${currentSessionId}/complete`, {
-                    method: 'POST'
-                });
-                
+                const response = await fetch(`${API_BASE}/session/${currentSessionId}/complete`, { method: 'POST' });
                 const result = await response.json();
-                
                 alert('会话完成！已提取 ' + result.selections.length + ' 个字段');
-                
-                // 重置 UI
                 resetUI();
-                
             } catch (e) {
                 alert('完成会话失败: ' + e.message);
             }
@@ -363,30 +483,22 @@
         
         async function closeSession() {
             if (!currentSessionId) return;
-            
             try {
-                await fetch(`${API_BASE}/session/${currentSessionId}`, {
-                    method: 'DELETE'
-                });
+                await fetch(`${API_BASE}/session/${currentSessionId}`, { method: 'DELETE' });
             } catch (e) {
                 console.error('关闭会话失败:', e);
             }
-            
             resetUI();
         }
         
         function resetUI() {
             currentSessionId = null;
             selections = [];
-            
-            if (eventSource) {
-                eventSource.close();
-                eventSource = null;
-            }
-            
+            if (eventSource) { eventSource.close(); eventSource = null; }
             document.getElementById('startBtn').style.display = 'inline-block';
             document.getElementById('closeBtn').style.display = 'none';
             document.getElementById('completeBtn').style.display = 'none';
+            document.getElementById('saveRulesBtn').style.display = 'none';
             document.getElementById('statusIndicator').classList.remove('connected');
             document.getElementById('statusText').textContent = '未连接';
             document.getElementById('selectionList').innerHTML = '<div class="empty-state">点击"启动会话"开始在浏览器中选择元素</div>';
