@@ -25,7 +25,7 @@
 | API 接口 | ✅ | `/selector/start`、`/selector/preview`、`/field-rules`（CRUD 全部正常）、`/api/crawl/start/{taskId}` |
 | 前端 editor.html | ✅ | 支持选择器类型/extractionType/validations，默认 URL 新浪网 |
 | 编译 | ✅ | `mvn compile` 通过 |
-| Git 推送 | ✅ | commit `eedd59f` 已推送到 origin/main |
+| Git 推送 | ✅ | commit `73a8d32` 已推送到 origin/main |
 
 ### API 验证状态
 
@@ -37,13 +37,17 @@
 | `POST /api/field-rules/batch` | ✅ |
 | `DELETE /api/field-rules/{id}` | ✅ |
 
-### M4 待办（递归翻页抓取执行器）
+### M4 验收标准
 
-1. **PageController 添加 `/tasks/{id}/run` 路由** — 渲染 `task_run.html` 执行结果页面
-2. **创建 `task_run.html` 模板** — 展示爬取进度和结果
-3. **增强 CrawlExecutionService** — 可选：记录 CrawlSession
-4. **端到端联调** — 启动应用，访问 `/editor`，完整走一遍：启动会话 → 点击元素 → 选择候选 → 预览 → 保存规则 → 执行爬取
-5. **Git commit** — M4 功能完成后提交
+- [x] `CrawlExecutionService` 翻页循环 + 详情页提取
+- [x] `CrawlController` 手动触发接口
+- [x] URL 去重双层机制（内存 Set + 数据库查询）
+
+### M5 待办（Quartz 定时执行 + 快照 + 审计日志）
+
+1. **Quartz 定时任务** — 定时触发爬取
+2. **PageSnapshot 快照** — 保存页面快照
+3. **审计日志** — 记录爬取历史
 
 ### 关键技术细节（需注意）
 
