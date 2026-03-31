@@ -92,3 +92,61 @@ backend/src/main/resources/
 - Java: 24.0.1 (build 24.0.1+9-30)
 - Maven: 3.9.11
 - Spring Boot: 3.2.5
+
+---
+
+## 2026-03-30
+
+### 已完成：M3 字段映射 + 预览 + 校验
+
+**交付物**：
+- `ExtractType` 枚举（text / html / attribute / innerText / innerHTML）
+- `FieldRule.java` - 实体类含 selectors (JSON) 和 validations (JSON)
+- `FieldRuleMapper.java` - 注解 SQL（read 用 typeHandler 反序列化，write 在 Service 层手动序列化）
+- `FieldRuleService.java` - CRUD + 校验逻辑
+- `FieldRuleController.java` - REST API（含 batch create）
+- `PreviewRequest.java`, `PreviewResult.java`, `NodeSelection.java` DTO
+- `SelectorService.previewExtraction()` - 复用选择器逻辑做预览提取
+- `editor.html` - 字段映射 UI（选择器类型/extractionType/validations 配置）
+
+**API 端点**：
+- `GET /api/field-rules` - 列表
+- `POST /api/field-rules` - 创建
+- `PUT /api/field-rules/{id}` - 更新
+- `DELETE /api/field-rules/{id}` - 删除
+- `POST /api/field-rules/batch` - 批量创建
+- `POST /api/selector/preview` - 预览提取
+
+**关键技术决策**：
+- MyBatis 注解限制：`@Insert`/`@Update` 不能 inline typeHandler，改为 Service 层手动 JSON 序列化
+- 读写分离：read 用 typeHandler 反序列化，write 用 ObjectMapper 序列化
+
+**Git commit**: `eedd59f fix: 修复 field-rules batch 500 错误 — 手动 JSON 序列化实现读写分离`
+
+### 已完成：M4 Schema 修复（前置工作）
+
+**发现问题**：
+- `V1__init_schema.sql` 中 `crawl_task` 表列名为 `url_pattern`, `status`
+- `CrawlTask.java` 实体字段为 `seedUrl`, `paginationSelector`, `paginationType`, `detailUrlPattern`, `maxPages`, `enabled`
+- `CrawlTaskMapper.java` insert/update SQL 已使用新列名，与数据库实际不匹配
+
+**修复**：
+- 创建 `V2__fix_crawl_task_columns.sql` - 添加新列并迁移数据
+
+### 进行中：M4 递归翻页抓取
+
+**已完成**：
+- `CrawlExecutionService.java` - 核心抓取逻辑（编译修复：URI.create() 替代 String.resolve()，navigate() 替代 goto，LoadState.NETWORKIDLE）
+- `CrawlController.java` - `POST /api/crawl/start/{taskId}` 手动触发接口
+- `V2__fix_crawl_task_columns.sql` - Schema 修复迁移脚本
+
+**待完成**：
+- 应用 V2 migration 到数据库
+- 端到端集成测试
+- URL 去重机制完善
+
+### 环境信息
+- Java: 24.0.1 (build 24.0.1+9-30)
+- Maven: 3.9.11
+- Spring Boot: 3.2.5
+- Playwright: 1.49.0

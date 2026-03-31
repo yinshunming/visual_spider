@@ -106,13 +106,13 @@
 **目标**：搭建可运行的项目骨架，完成数据库表设计和基础 CRUD。
 
 **范围**：
-- [ ] Spring Boot 项目初始化（JDK-21, Maven）
-- [ ] application.yml 配置（PostgreSQL + Quartz）
-- [ ] MyBatis 集成（注解方式）
-- [ ] 5 张表的实体类创建
-- [ ] 5 张表的 Mapper 接口和 CRUD 方法
-- [ ] REST API Controller（article / field_rule / crawl_task / crawl_session / page_snapshot）
-- [ ] Thymeleaf 基础页面骨架（首页）
+- [x] Spring Boot 项目初始化（JDK-21, Maven）
+- [x] application.yml 配置（PostgreSQL + Quartz）
+- [x] MyBatis 集成（注解方式）
+- [x] 5 张表的实体类创建
+- [x] 5 张表的 Mapper 接口和 CRUD 方法
+- [x] REST API Controller（article / field_rule / crawl_task / crawl_session / page_snapshot）
+- [x] Thymeleaf 基础页面骨架（首页）
 
 **验收标准**：
 - `./mvnw clean compile` 通过
@@ -153,11 +153,11 @@
 **目标**：将规则映射到 article 表，预览抽取结果并校验。
 
 **范围**：
-- [ ] 预定义字段枚举（title, content, author, publish_date, source）
-- [ ] 字段映射配置 UI
-- [ ] 预览模式（输入 URL，用当前规则提取 → 显示 article 预览）
-- [ ] 字段校验规则实现
-- [ ] 规则保存到数据库
+- [x] 预定义字段枚举（title, content, author, publish_date, source）
+- [x] 字段映射配置 UI
+- [x] 预览模式（输入 URL，用当前规则提取 → 显示 article 预览）
+- [x] 字段校验规则实现
+- [x] 规则保存到数据库
 
 **验收标准**：
 - 点击"预览"按钮，对给定 URL 显示 article 预览
@@ -171,16 +171,21 @@
 **目标**：支持列表页自动翻页 → 进入详情页提取。
 
 **范围**：
-- [ ] CrawlTask 配置扩展（pagination_selector / pagination_type / max_pages / detail_url_pattern）
-- [ ] 列表页链接提取
-- [ ] 翻页逻辑（点击下一页 → 重复抓取）
-- [ ] 详情页 article 提取
-- [ ] URL 去重机制
+- [x] CrawlTask 配置扩展（pagination_selector / pagination_type / max_pages / detail_url_pattern）
+- [x] 列表页链接提取
+- [x] 翻页逻辑（点击下一页 → 重复抓取）
+- [x] 详情页 article 提取
+- [x] URL 去重机制
+
+**交付物**：
+- `CrawlExecutionService.java` - 核心抓取逻辑（翻页循环 + 详情页提取 + URL去重）
+- `CrawlController.java` - `POST /api/crawl/start/{taskId}` 手动触发接口
+- `V2__fix_crawl_task_columns.sql` - Schema 修复迁移脚本
 
 **验收标准**：
-- 配置好规则后，运行任务能从列表页自动翻页抓取多篇 article
-- 每篇 article 的字段正确提取
-- 已抓取 URL 不重复抓取
+- [ ] 配置好规则后，运行任务能从列表页自动翻页抓取多篇 article
+- [ ] 每篇 article 的字段正确提取
+- [ ] 已抓取 URL 不重复抓取
 
 ---
 
