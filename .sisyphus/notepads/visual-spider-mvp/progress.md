@@ -136,14 +136,49 @@ backend/src/main/resources/
 ### 进行中：M4 递归翻页抓取
 
 **已完成**：
-- `CrawlExecutionService.java` - 核心抓取逻辑（编译修复：URI.create() 替代 String.resolve()，navigate() 替代 goto，LoadState.NETWORKIDLE）
+- `CrawlExecutionService.java` - 核心抓取逻辑（翻页循环 + 详情页提取 + URL去重）
 - `CrawlController.java` - `POST /api/crawl/start/{taskId}` 手动触发接口
 - `V2__fix_crawl_task_columns.sql` - Schema 修复迁移脚本
+- `mvn compile` 通过
+
+**URL 去重机制**：
+- 内存层：`Set<String> seenUrls` 跳过同一批次重复 URL
+- 数据库层：`articleMapper.findByUrl()` 跳过已抓取 URL
 
 **待完成**：
-- 应用 V2 migration 到数据库
-- 端到端集成测试
-- URL 去重机制完善
+- 应用 V2 migration 到数据库（Docker 未运行，需手动执行 SQL）
+- 端到端集成测试（需启动应用 + Playwright 浏览器）
+
+### 环境信息
+- Java: 24.0.1 (build 24.0.1+9-30)
+- Maven: 3.9.11
+- Spring Boot: 3.2.5
+- Playwright: 1.49.0
+
+---
+
+## 2026-03-31
+
+### 已完成：M4 递归翻页抓取
+
+**交付物**：
+- `CrawlExecutionService.java` - 核心抓取逻辑（426 行）
+  - 翻页循环：`maxPages` 控制翻页次数
+  - 详情页提取：使用 FieldRule[] 提取 title/content/author/publish_date/source
+  - URL 去重：内存 Set + 数据库 Article 表去重
+- `CrawlController.java` - `POST /api/crawl/start/{taskId}` 手动触发接口
+- `V2__fix_crawl_task_columns.sql` - Schema 修复迁移脚本
+- `mvn compile` 通过
+
+**URL 去重机制**：
+```
+seenUrls (HashSet) → 跳过同一批次中的重复 URL
+articleMapper.findByUrl() → 跳过已抓取过的 URL
+```
+
+**待完成**：
+- 应用 V2 migration 到数据库（Docker 未运行，需手动执行 SQL）
+- 端到端集成测试（需启动应用 + Playwright 浏览器）
 
 ### 环境信息
 - Java: 24.0.1 (build 24.0.1+9-30)

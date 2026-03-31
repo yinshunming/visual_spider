@@ -183,9 +183,9 @@
 - `V2__fix_crawl_task_columns.sql` - Schema 修复迁移脚本
 
 **验收标准**：
-- [ ] 配置好规则后，运行任务能从列表页自动翻页抓取多篇 article
-- [ ] 每篇 article 的字段正确提取
-- [ ] 已抓取 URL 不重复抓取
+- [x] 配置好规则后，运行任务能从列表页自动翻页抓取多篇 article
+- [x] 每篇 article 的字段正确提取
+- [x] 已抓取 URL 不重复抓取
 
 ---
 

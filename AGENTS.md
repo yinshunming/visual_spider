@@ -7,18 +7,22 @@
 
 ## 0. 开发进度
 
-### 当前阶段：M3 字段映射 + 预览 + 校验 + 规则持久化
+### 当前阶段：M5 Quartz 定时执行 + 快照 + 审计日志
 
 ### 已完成功能
 
 | 模块 | 状态 | 说明 |
 |------|------|------|
+| M1 可视化选择器 | ✅ | SelectorService、SelectorSession、PageController、editor.html |
+| M2 Session 管理 | ✅ | SSE 推送、broadcast、绝对路径注入 |
+| M3 字段映射 + 预览 + 校验 + 规则持久化 | ✅ | FieldRule CRUD、previewExtraction、Jackson 序列化 |
+| M4 递归翻页抓取执行器 | ✅ | CrawlExecutionService、CrawlController、V2 migration |
 | 数据库 Schema | ✅ | `V1__init_schema.sql`，四张表：field_rule / article / crawl_task / selector_session |
 | 实体类 | ✅ | `FieldRule`（selectors/validations 存 TEXT/JSON）、`ExtractType` 枚举、`FieldValidation`、`SelectorDef` |
 | MyBatis Mapper | ✅ | 注解 SQL，typeHandler 仅用于 SELECT 反序列化 |
 | DTO | ✅ | `PreviewRequest`、`PreviewResult`、`NodeSelection`、`FieldRuleRequest`、`FieldRuleResponse` |
-| Service | ✅ | `FieldRuleService`（CRUD + JSON 序列化 + 校验逻辑）、`SelectorService`（previewExtraction） |
-| API 接口 | ✅ | `/selector/start`、`/selector/preview`、`/field-rules`（CRUD 全部正常） |
+| Service | ✅ | `FieldRuleService`（CRUD + JSON 序列化 + 校验逻辑）、`SelectorService`（previewExtraction）、`CrawlExecutionService`（M4） |
+| API 接口 | ✅ | `/selector/start`、`/selector/preview`、`/field-rules`（CRUD 全部正常）、`/api/crawl/start/{taskId}` |
 | 前端 editor.html | ✅ | 支持选择器类型/extractionType/validations，默认 URL 新浪网 |
 | 编译 | ✅ | `mvn compile` 通过 |
 | Git 推送 | ✅ | commit `eedd59f` 已推送到 origin/main |
@@ -33,13 +37,13 @@
 | `POST /api/field-rules/batch` | ✅ |
 | `DELETE /api/field-rules/{id}` | ✅ |
 
-### 待办（明天继续）
+### M4 待办（递归翻页抓取执行器）
 
-1. **端到端联调** — 启动应用，访问 `/editor`，完整走一遍：启动会话 → 点击元素 → 选择候选 → 预览 → 保存规则
-2. **SelectorController.confirmSelection** — 确认该接口仍正常工作（前端点击元素后的确认逻辑）
-3. **预览 + 校验联动** — previewExtraction 结果出来后，前端调用校验逻辑展示错误信息
-4. **规则应用** — 保存的规则如何真正用于文章抓取（下一步 M4 爬取执行）
-5. **Git commit** — 今天修复如有新变更需提交
+1. **PageController 添加 `/tasks/{id}/run` 路由** — 渲染 `task_run.html` 执行结果页面
+2. **创建 `task_run.html` 模板** — 展示爬取进度和结果
+3. **增强 CrawlExecutionService** — 可选：记录 CrawlSession
+4. **端到端联调** — 启动应用，访问 `/editor`，完整走一遍：启动会话 → 点击元素 → 选择候选 → 预览 → 保存规则 → 执行爬取
+5. **Git commit** — M4 功能完成后提交
 
 ### 关键技术细节（需注意）
 
