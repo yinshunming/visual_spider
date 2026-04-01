@@ -13,6 +13,7 @@ import com.visualspider.domain.FieldRule;
 import com.visualspider.domain.FieldValidation;
 import com.visualspider.domain.SelectorDef;
 import com.visualspider.repository.ArticleMapper;
+import com.visualspider.repository.CrawlSessionMapper;
 import com.visualspider.repository.CrawlTaskMapper;
 import com.visualspider.repository.FieldRuleMapper;
 import org.slf4j.Logger;
@@ -48,6 +49,7 @@ public class CrawlExecutionService {
     private final FieldRuleMapper fieldRuleMapper;
     private final FieldRuleService fieldRuleService;
     private final ArticleMapper articleMapper;
+    private final CrawlSessionMapper crawlSessionMapper;
     private final ObjectMapper objectMapper;
 
     public CrawlExecutionService(Browser browser,
@@ -55,12 +57,14 @@ public class CrawlExecutionService {
                                  FieldRuleMapper fieldRuleMapper,
                                  FieldRuleService fieldRuleService,
                                  ArticleMapper articleMapper,
+                                 CrawlSessionMapper crawlSessionMapper,
                                  ObjectMapper objectMapper) {
         this.browser = browser;
         this.crawlTaskMapper = crawlTaskMapper;
         this.fieldRuleMapper = fieldRuleMapper;
         this.fieldRuleService = fieldRuleService;
         this.articleMapper = articleMapper;
+        this.crawlSessionMapper = crawlSessionMapper;
         this.objectMapper = objectMapper;
     }
 
@@ -172,6 +176,50 @@ public class CrawlExecutionService {
         log.info("crawl_execute_complete taskId={} pages={} articles={} errors={}", 
             taskId, pagesCrawled, articlesExtracted, errors.size());
         return new CrawlResult(pagesCrawled, articlesExtracted, errors);
+    }
+
+    /**
+     * 执行爬取任务（带 session 跟踪）
+     * @param taskId 任务 ID
+     * @param sessionId session ID
+     * @return 爬取结果
+     */
+    public CrawlResult execute(Long taskId, Long sessionId) {
+        log.info("crawl_execute_with_session taskId={} sessionId={}", taskId, sessionId);
+
+        var sessionOpt = crawlSessionMapper.findById(sessionId);
+        if (sessionOpt.isEmpty()) {
+            throw new IllegalArgumentException("CrawlSession not found: " + sessionId);
+        }
+        var session = sessionOpt.get();
+
+        // 更新 session 状态为 RUNNING
+        session.setStartTime(LocalDateTime.now());
+        session.setStatus("RUNNING");
+        crawlSessionMapper.update(session);
+
+        CrawlResult result;
+        try {
+            result = execute(taskId);
+        } catch (Exception e) {
+            log.error("crawl_execute_session_failed taskId={} sessionId={} error={}", 
+                taskId, sessionId, e.getMessage());
+            session.setEndTime(LocalDateTime.now());
+            session.setStatus("FAILED");
+            session.setErrorMessage(e.getMessage());
+            crawlSessionMapper.update(session);
+            throw e;
+        }
+
+        // 更新 session 为 SUCCESS
+        session.setEndTime(LocalDateTime.now());
+        session.setStatus(result.errors().isEmpty() ? "SUCCESS" : "FAILED");
+        session.setPagesCrawled(result.pagesCrawled());
+        session.setArticlesExtracted(result.articlesExtracted());
+        session.setErrorMessage(result.errors().isEmpty() ? null : String.join("; ", result.errors()));
+        crawlSessionMapper.update(session);
+
+        return result;
     }
 
     // ==================== 内部方法 ====================

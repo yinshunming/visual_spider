@@ -18,6 +18,9 @@ public interface CrawlTaskMapper {
     @Select("SELECT * FROM crawl_task WHERE enabled = true")
     List<CrawlTask> findEnabled();
 
+    @Select("SELECT * FROM crawl_task WHERE cron_expression IS NOT NULL AND cron_expression <> ''")
+    List<CrawlTask> findAllWithCronExpression();
+
     @Insert("INSERT INTO crawl_task (name, seed_url, pagination_selector, pagination_type, detail_url_pattern, " +
             "max_pages, enabled, cron_expression, created_at, updated_at) " +
             "VALUES (#{name}, #{seedUrl}, #{paginationSelector}, #{paginationType}, #{detailUrlPattern}, " +

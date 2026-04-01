@@ -16,15 +16,22 @@
     "ses_2c0f148efffeVxNXeVRayxoASN",
     "ses_2c0f138a8ffe8h0RA6IBgy7k2o",
     "ses_2c0ed865dffe0dgLGinltSgU0G",
-    "ses_2c0ed7857ffe4M1m3GaCgWChZT"
+    "ses_2c0ed7857ffe4M1m3GaCgWChZT",
+    "ses_2bba21951ffeAXIkXzDyT1eVFl",
+    "ses_2b6b78873ffegCZBVkV4NkucBC",
+    "ses_2b6b76d63ffeONMxm21HNWr7J8",
+    "ses_2b6b7ab21ffeZNLxw9Mkjo7F0Y",
+    "ses_2b6b0bf66ffev9p8dP4XhgvUSm",
+    "ses_2b6ac10b4ffeltAVXNa0pj5sAg"
   ],
-  "current_milestone": "M4",
+  "current_milestone": "M5",
   "completed_milestones": [
     "M1",
     "M2",
-    "M3"
+    "M3",
+    "M4"
   ],
-  "next_milestone": "M4",
+  "next_milestone": "M5",
   "worktree_path": null,
   "task_sessions": {}
 }
