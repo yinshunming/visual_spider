@@ -6,10 +6,12 @@ import com.visualspider.domain.CrawlTask;
 import com.visualspider.repository.ArticleMapper;
 import com.visualspider.repository.CrawlSessionMapper;
 import com.visualspider.repository.CrawlTaskMapper;
+import com.visualspider.repository.PageSnapshotMapper;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 
@@ -19,11 +21,14 @@ public class PageController {
     private final CrawlTaskMapper crawlTaskMapper;
     private final ArticleMapper articleMapper;
     private final CrawlSessionMapper crawlSessionMapper;
+    private final PageSnapshotMapper pageSnapshotMapper;
 
-    public PageController(CrawlTaskMapper crawlTaskMapper, ArticleMapper articleMapper, CrawlSessionMapper crawlSessionMapper) {
+    public PageController(CrawlTaskMapper crawlTaskMapper, ArticleMapper articleMapper,
+                          CrawlSessionMapper crawlSessionMapper, PageSnapshotMapper pageSnapshotMapper) {
         this.crawlTaskMapper = crawlTaskMapper;
         this.articleMapper = articleMapper;
         this.crawlSessionMapper = crawlSessionMapper;
+        this.pageSnapshotMapper = pageSnapshotMapper;
     }
 
     @GetMapping("/")
@@ -50,6 +55,17 @@ public class PageController {
         List<CrawlSession> sessions = crawlSessionMapper.findAll();
         model.addAttribute("sessions", sessions);
         return "sessions/index";
+    }
+
+    @GetMapping("/sessions/detail")
+    public String sessionDetail(@RequestParam Long sessionId, Model model) {
+        var sessionOpt = crawlSessionMapper.findById(sessionId);
+        if (sessionOpt.isEmpty()) {
+            return "redirect:/sessions";
+        }
+        model.addAttribute("session", sessionOpt.get());
+        model.addAttribute("snapshots", pageSnapshotMapper.findBySessionId(sessionId));
+        return "sessions/detail";
     }
 
     @GetMapping("/editor")

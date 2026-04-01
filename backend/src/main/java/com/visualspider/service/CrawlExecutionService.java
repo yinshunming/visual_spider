@@ -51,7 +51,6 @@ public class CrawlExecutionService {
     private final ArticleMapper articleMapper;
     private final CrawlSessionMapper crawlSessionMapper;
     private final ObjectMapper objectMapper;
-    private final java.util.function.Consumer<Page> onPageCrawled;
 
     public CrawlExecutionService(Browser browser,
                                  CrawlTaskMapper crawlTaskMapper,
@@ -59,8 +58,7 @@ public class CrawlExecutionService {
                                  FieldRuleService fieldRuleService,
                                  ArticleMapper articleMapper,
                                  CrawlSessionMapper crawlSessionMapper,
-                                 ObjectMapper objectMapper,
-                                 java.util.function.Consumer<Page> onPageCrawled) {
+                                 ObjectMapper objectMapper) {
         this.browser = browser;
         this.crawlTaskMapper = crawlTaskMapper;
         this.fieldRuleMapper = fieldRuleMapper;
@@ -68,7 +66,6 @@ public class CrawlExecutionService {
         this.articleMapper = articleMapper;
         this.crawlSessionMapper = crawlSessionMapper;
         this.objectMapper = objectMapper;
-        this.onPageCrawled = onPageCrawled;
     }
 
     // ==================== 公开接口 ====================
@@ -123,8 +120,8 @@ public class CrawlExecutionService {
         try {
             // 5. 打开首页
             listPage = browser.newPage();
-            listPage.navigate(seedUrl);
-            listPage.waitForLoadState(LoadState.NETWORKIDLE);
+            listPage.navigate(seedUrl, new Page.NavigateOptions().setTimeout(60000));
+            listPage.waitForLoadState(LoadState.DOMCONTENTLOADED);
             if (onPageCrawled != null) {
                 onPageCrawled.accept(listPage);
             }
@@ -283,8 +280,8 @@ public class CrawlExecutionService {
                                    List<ParsedFieldRule> parsedRules, String taskName,
                                    java.util.function.Consumer<Page> onPageCrawled) {
         // 导航到详情页
-        listPage.navigate(detailUrl);
-        listPage.waitForLoadState(LoadState.NETWORKIDLE);
+        listPage.navigate(detailUrl, new Page.NavigateOptions().setTimeout(60000));
+        listPage.waitForLoadState(LoadState.DOMCONTENTLOADED);
         if (onPageCrawled != null) {
             onPageCrawled.accept(listPage);
         }
@@ -389,7 +386,7 @@ public class CrawlExecutionService {
                 return false;
             }
             btn.first().click();
-            page.waitForLoadState(LoadState.NETWORKIDLE);
+            page.waitForLoadState(LoadState.DOMCONTENTLOADED);
             return true;
         } catch (PlaywrightException e) {
             log.debug("pagination_click_failed selector={} error={}", paginationSelector, e.getMessage());

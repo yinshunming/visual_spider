@@ -1,5 +1,6 @@
 package com.visualspider.controller;
 
+import com.microsoft.playwright.Page;
 import com.visualspider.domain.CrawlSchedule;
 import com.visualspider.domain.CrawlSession;
 import com.visualspider.domain.CrawlTask;
@@ -7,6 +8,7 @@ import com.visualspider.repository.CrawlSessionMapper;
 import com.visualspider.repository.CrawlTaskMapper;
 import com.visualspider.service.CrawlExecutionService;
 import com.visualspider.service.CrawlSchedulerService;
+import com.visualspider.service.SnapshotService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Crawl Controller - M4 爬取执行 API
@@ -28,16 +31,19 @@ public class CrawlController {
     private final CrawlSchedulerService schedulerService;
     private final CrawlSessionMapper crawlSessionMapper;
     private final CrawlTaskMapper crawlTaskMapper;
+    private final SnapshotService snapshotService;
 
     public CrawlController(
             CrawlExecutionService crawlExecutionService,
             CrawlSchedulerService schedulerService,
             CrawlSessionMapper crawlSessionMapper,
-            CrawlTaskMapper crawlTaskMapper) {
+            CrawlTaskMapper crawlTaskMapper,
+            SnapshotService snapshotService) {
         this.crawlExecutionService = crawlExecutionService;
         this.schedulerService = schedulerService;
         this.crawlSessionMapper = crawlSessionMapper;
         this.crawlTaskMapper = crawlTaskMapper;
+        this.snapshotService = snapshotService;
     }
 
     /**
@@ -74,10 +80,11 @@ public class CrawlController {
 
     /**
      * 立即执行一次爬取任务（跳过重叠检测）
-     * POST /api/schedules/{taskId}/run-once
+     * POST /api/crawl/schedules/{taskId}/run-once
      */
     @PostMapping("/schedules/{taskId}/run-once")
     public ResponseEntity<?> runOnce(@PathVariable Long taskId) {
+        // 创建 audit session
         CrawlSession session = new CrawlSession();
         session.setTaskId(taskId);
         session.setStartTime(LocalDateTime.now());
@@ -85,18 +92,61 @@ public class CrawlController {
         crawlSessionMapper.insert(session);
         Long sessionId = session.getId();
 
+        // 重叠检测
         boolean started = schedulerService.tryStart(taskId, sessionId);
         if (!started) {
+            session.setEndTime(LocalDateTime.now());
+            session.setStatus("SKIPPED");
+            session.setErrorMessage("重叠执行被跳过");
+            crawlSessionMapper.update(session);
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
                 "success", false,
                 "error", "Task is already running"
             ));
         }
 
+        // 构建快照回调
+        Consumer<Page> snapshotCallback = page -> {
+            snapshotService.saveSnapshot(page, sessionId, page.url());
+        };
+
+        // 执行爬取
+        CrawlExecutionService.CrawlResult result;
+        try {
+            result = crawlExecutionService.execute(taskId, sessionId, snapshotCallback);
+        } catch (Exception e) {
+            session.setEndTime(LocalDateTime.now());
+            session.setStatus("FAILED");
+            session.setErrorMessage(e.getMessage());
+            crawlSessionMapper.update(session);
+            schedulerService.onComplete(taskId, sessionId,
+                session.getStartTime(), session.getEndTime(), session.getStatus());
+            return ResponseEntity.internalServerError().body(Map.of(
+                "success", false,
+                "sessionId", sessionId,
+                "error", "Crawl failed: " + e.getMessage()
+            ));
+        }
+
+        // 更新 session
+        session.setEndTime(LocalDateTime.now());
+        session.setPagesCrawled(result.pagesCrawled());
+        session.setArticlesExtracted(result.articlesExtracted());
+        session.setStatus(result.errors().isEmpty() ? "SUCCESS" : "FAILED");
+        session.setErrorMessage(result.errors().isEmpty() ? null : String.join("; ", result.errors()));
+        crawlSessionMapper.update(session);
+
+        // 通知 scheduler 完成
+        schedulerService.onComplete(taskId, sessionId,
+            session.getStartTime(), session.getEndTime(), session.getStatus());
+
         return ResponseEntity.accepted().body(Map.of(
             "success", true,
             "sessionId", sessionId,
-            "taskId", taskId
+            "taskId", taskId,
+            "pagesCrawled", result.pagesCrawled(),
+            "articlesExtracted", result.articlesExtracted(),
+            "errors", result.errors()
         ));
     }
 
