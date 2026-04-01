@@ -25,7 +25,7 @@
 | API 接口 | ✅ | `/selector/start`、`/selector/preview`、`/field-rules`（CRUD 全部正常）、`/api/crawl/start/{taskId}` |
 | 前端 editor.html | ✅ | 支持选择器类型/extractionType/validations，默认 URL 新浪网 |
 | 编译 | ✅ | `mvn compile` 通过 |
-| Git 推送 | ✅ | commit `73a8d32` 已推送到 origin/main |
+| Git 推送 | ✅ | commit `0ad4387` 已推送到 origin/main |
 
 ### API 验证状态
 
@@ -45,9 +45,16 @@
 
 ### M5 待办（Quartz 定时执行 + 快照 + 审计日志）
 
-1. **Quartz 定时任务** — 定时触发爬取
-2. **PageSnapshot 快照** — 保存页面快照
-3. **审计日志** — 记录爬取历史
+| 模块 | 状态 | 说明 |
+|------|------|------|
+| Quartz 定时任务 | ✅ | `CrawlScheduleJob` + `CrawlSchedulerService` |
+| PageSnapshot 快照 | ✅ | `SnapshotService`（HTML+PNG）+ `SnapshotProperties` |
+| 审计日志 | ✅ | `CrawlSession` + `CrawlSessionMapper` |
+| Session 详情页 | ✅ | `sessions/detail.html` + `CrawlSessionController` |
+| API 端点 | ✅ | `/api/crawl/schedules/{taskId}/run-once` 等 |
+| 快照端点 | ✅ | `PageSnapshotMapper` + `/api/snapshots/session/{sessionId}` |
+
+**待验证**：定时执行、快照保存、前端查看
 
 ### 关键技术细节（需注意）
 
@@ -62,12 +69,12 @@
 ### Git 历史
 
 ```
+0ad4387 feat: M5 Phase 3 — PageSnapshot快照 + Session详情页 + 修复execute单参数调用
+7a54596 feat: M5 Phase 1-2 — Quartz调度 + CrawlSession审计日志
+ef35e72 docs: 修正 M4/M5 文档 — 补全测试结果、更新 Git commit ID、清理过时待办
+73a8d32 docs: 更新 M4/M5 进度文档 — 验收标准已完成，端到端测试通过
+938fc75 feat: M4 递归翻页抓取 — CrawlExecutionService + CrawlController + V2 migration
 eedd59f fix: 修复 field-rules batch 500 错误 — 手动 JSON 序列化实现读写分离
-0e2fd1f feat: M3 字段映射 + 预览 + 校验 + 规则持久化
-98e6ec8 fix: CORS filter 解决跨域预检请求失败
-8a793bd fix: M2 selector session broadcast 迭代修复与绝对路径注入
-44caf35 feat: M2 简化版 selector session 实现
-9a0886c chore: 更新 .gitignore 排除 target/
 ```
 
 ---

@@ -196,16 +196,24 @@
 **范围**：
 - [x] Quartz 集成
 - [x] 定时调度逻辑
-- [ ] 快照策略（HTML + 截图）
-- [ ] 快照存储（文件系统 + DB 记录路径）
+- [x] 快照策略（HTML + 截图）
+- [x] 快照存储（文件系统 + DB 记录路径）
 - [x] 运行日志记录
-- [ ] 前端日志查看和快照展示
+- [x] 前端日志查看和快照展示
+
+**交付物**：
+- `CrawlScheduleJob.java` — Quartz Job，集成 SnapshotService 回调
+- `CrawlSchedulerService.java` — 调度器服务，防重叠执行
+- `SnapshotService.java` — 快照保存（HTML + PNG）
+- `SnapshotProperties.java` — 快照配置（storage-path）
+- `CrawlSessionController.java` — Session 详情 API + 快照列表
+- `sessions/detail.html` — Session 详情页（快照画廊）
 
 **验收标准**：
-- 配置 cron 表达式后，任务按定时执行
-- 每次运行生成 `crawl_session` 记录
-- 每个被抓取的 URL 都有 HTML 和截图文件
-- 前端可查看历史运行日志和快照
+- [ ] 配置 cron 表达式后，任务按定时执行
+- [ ] 每次运行生成 `crawl_session` 记录
+- [ ] 每个被抓取的 URL 都有 HTML 和截图文件
+- [ ] 前端可查看历史运行日志和快照
 
 ---
 
