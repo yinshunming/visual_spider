@@ -53,6 +53,7 @@
                         <th>状态</th>
                         <th>抓取页面</th>
                         <th>提取文章</th>
+                        <th>快照</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -67,6 +68,7 @@
                         </td>
                         <td th:text="${session.pagesCrawled}">0</td>
                         <td th:text="${session.articlesExtracted}">0</td>
+                        <td><a th:href="@{/sessions/{id}(id=${session.id})}">查看快照</a></td>
                     </tr>
                 </tbody>
             </table>

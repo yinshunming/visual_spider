@@ -1,8 +1,14 @@
 package com.visualspider.controller;
 
 import com.visualspider.domain.CrawlSession;
+import com.visualspider.domain.PageSnapshot;
 import com.visualspider.repository.CrawlSessionMapper;
+import com.visualspider.repository.PageSnapshotMapper;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.core.io.Resource;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -13,9 +19,11 @@ import java.util.List;
 public class CrawlSessionController {
 
     private final CrawlSessionMapper crawlSessionMapper;
+    private final PageSnapshotMapper pageSnapshotMapper;
 
-    public CrawlSessionController(CrawlSessionMapper crawlSessionMapper) {
+    public CrawlSessionController(CrawlSessionMapper crawlSessionMapper, PageSnapshotMapper pageSnapshotMapper) {
         this.crawlSessionMapper = crawlSessionMapper;
+        this.pageSnapshotMapper = pageSnapshotMapper;
     }
 
     @GetMapping
@@ -66,5 +74,40 @@ public class CrawlSessionController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         crawlSessionMapper.deleteById(id);
         return ResponseEntity.ok().build();
+    }
+
+    // ─── Thymeleaf endpoints ────────────────────────────────────────────────
+
+    @GetMapping("/sessions")
+    public String index(Model model) {
+        model.addAttribute("sessions", crawlSessionMapper.findAll());
+        return "sessions/index";
+    }
+
+    @GetMapping("/sessions/{id}")
+    public String detail(@PathVariable Long id, Model model) {
+        var sessionOpt = crawlSessionMapper.findById(id);
+        if (sessionOpt.isEmpty()) {
+            return "redirect:/sessions";
+        }
+        model.addAttribute("session", sessionOpt.get());
+        List<PageSnapshot> snapshots = pageSnapshotMapper.findBySessionId(id);
+        model.addAttribute("snapshots", snapshots);
+        return "sessions/detail";
+    }
+
+    @GetMapping("/sessions/files/**")
+    public ResponseEntity<Resource> serveSnapshot(HttpServletRequest request) {
+        String path = request.getRequestURI().replace("/sessions/files/", "");
+        try {
+            Resource resource = new org.springframework.core.io.FileSystemResource(path);
+            if (!resource.exists()) {
+                return ResponseEntity.notFound().build();
+            }
+            String contentType = path.endsWith(".png") ? "image/png" : "text/html";
+            return ResponseEntity.ok().contentType(MediaType.parseMediaType(contentType)).body(resource);
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 }

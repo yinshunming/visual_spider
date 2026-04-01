@@ -1,10 +1,13 @@
 package com.visualspider.job;
 
+import com.microsoft.playwright.Page;
 import com.visualspider.domain.CrawlSession;
 import com.visualspider.repository.CrawlSessionMapper;
 import com.visualspider.service.CrawlExecutionService;
 import com.visualspider.service.CrawlSchedulerService;
+import com.visualspider.service.SnapshotService;
 import org.quartz.Job;
+import java.util.function.Consumer;
 import org.quartz.JobExecutionContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,16 +34,19 @@ public class CrawlScheduleJob implements Job {
     private CrawlSchedulerService schedulerService;
     private CrawlExecutionService executionService;
     private CrawlSessionMapper sessionMapper;
+    private SnapshotService snapshotService;
 
     /**
      * Spring 通过 Quartz SpringBeanJobFactory 注入依赖
      */
     public CrawlScheduleJob(CrawlSchedulerService schedulerService,
                             CrawlExecutionService executionService,
-                            CrawlSessionMapper sessionMapper) {
+                            CrawlSessionMapper sessionMapper,
+                            SnapshotService snapshotService) {
         this.schedulerService = schedulerService;
         this.executionService = executionService;
         this.sessionMapper = sessionMapper;
+        this.snapshotService = snapshotService;
     }
 
     /** Quartz 要求无参构造器 */
@@ -70,7 +76,10 @@ public class CrawlScheduleJob implements Job {
 
         // Step 3 — 执行爬取
         try {
-            CrawlExecutionService.CrawlResult result = executionService.execute(taskId, sessionId);
+            Consumer<Page> snapshotCallback = page -> {
+                snapshotService.saveSnapshot(page, sessionId, page.url());
+            };
+            CrawlExecutionService.CrawlResult result = executionService.execute(taskId, sessionId, snapshotCallback);
             session.setEndTime(java.time.LocalDateTime.now());
             session.setPagesCrawled(result.pagesCrawled());
             session.setArticlesExtracted(result.articlesExtracted());

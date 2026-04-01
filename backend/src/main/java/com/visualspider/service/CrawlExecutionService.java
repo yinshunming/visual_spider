@@ -51,6 +51,7 @@ public class CrawlExecutionService {
     private final ArticleMapper articleMapper;
     private final CrawlSessionMapper crawlSessionMapper;
     private final ObjectMapper objectMapper;
+    private final java.util.function.Consumer<Page> onPageCrawled;
 
     public CrawlExecutionService(Browser browser,
                                  CrawlTaskMapper crawlTaskMapper,
@@ -58,7 +59,8 @@ public class CrawlExecutionService {
                                  FieldRuleService fieldRuleService,
                                  ArticleMapper articleMapper,
                                  CrawlSessionMapper crawlSessionMapper,
-                                 ObjectMapper objectMapper) {
+                                 ObjectMapper objectMapper,
+                                 java.util.function.Consumer<Page> onPageCrawled) {
         this.browser = browser;
         this.crawlTaskMapper = crawlTaskMapper;
         this.fieldRuleMapper = fieldRuleMapper;
@@ -66,16 +68,27 @@ public class CrawlExecutionService {
         this.articleMapper = articleMapper;
         this.crawlSessionMapper = crawlSessionMapper;
         this.objectMapper = objectMapper;
+        this.onPageCrawled = onPageCrawled;
     }
 
     // ==================== 公开接口 ====================
 
     /**
-     * 执行爬取任务
+     * 执行爬取任务（无回调）
      * @param taskId 任务 ID
      * @return 爬取结果
      */
     public CrawlResult execute(Long taskId) {
+        return execute(taskId, null);
+    }
+
+    /**
+     * 执行爬取任务
+     * @param taskId 任务 ID
+     * @param onPageCrawled 页面抓取回调（可为空）
+     * @return 爬取结果
+     */
+    public CrawlResult execute(Long taskId, java.util.function.Consumer<Page> onPageCrawled) {
         log.info("crawl_execute_start taskId={}", taskId);
 
         // 1. 加载任务
@@ -112,6 +125,9 @@ public class CrawlExecutionService {
             listPage = browser.newPage();
             listPage.navigate(seedUrl);
             listPage.waitForLoadState(LoadState.NETWORKIDLE);
+            if (onPageCrawled != null) {
+                onPageCrawled.accept(listPage);
+            }
             log.info("crawl_navigated_to url={}", seedUrl);
 
             // 6. 翻页循环
@@ -138,7 +154,7 @@ public class CrawlExecutionService {
 
                     try {
                         // 在当前 tab 导航到详情页（也可以用 new Page() 开新标签）
-                        Article article = extractArticle(listPage, detailUrl, parsedRules, task.getName());
+                        Article article = extractArticle(listPage, detailUrl, parsedRules, task.getName(), onPageCrawled);
                         if (article != null) {
                             articleMapper.insert(article);
                             articlesExtracted++;
@@ -184,7 +200,7 @@ public class CrawlExecutionService {
      * @param sessionId session ID
      * @return 爬取结果
      */
-    public CrawlResult execute(Long taskId, Long sessionId) {
+    public CrawlResult execute(Long taskId, Long sessionId, java.util.function.Consumer<Page> onPageCrawled) {
         log.info("crawl_execute_with_session taskId={} sessionId={}", taskId, sessionId);
 
         var sessionOpt = crawlSessionMapper.findById(sessionId);
@@ -200,7 +216,7 @@ public class CrawlExecutionService {
 
         CrawlResult result;
         try {
-            result = execute(taskId);
+            result = execute(taskId, onPageCrawled);
         } catch (Exception e) {
             log.error("crawl_execute_session_failed taskId={} sessionId={} error={}", 
                 taskId, sessionId, e.getMessage());
@@ -264,10 +280,14 @@ public class CrawlExecutionService {
      * @param taskName 任务名（作为 source）
      */
     private Article extractArticle(Page listPage, String detailUrl, 
-                                   List<ParsedFieldRule> parsedRules, String taskName) {
+                                   List<ParsedFieldRule> parsedRules, String taskName,
+                                   java.util.function.Consumer<Page> onPageCrawled) {
         // 导航到详情页
         listPage.navigate(detailUrl);
         listPage.waitForLoadState(LoadState.NETWORKIDLE);
+        if (onPageCrawled != null) {
+            onPageCrawled.accept(listPage);
+        }
 
         Article article = new Article();
         article.setUrl(detailUrl);

@@ -33,6 +33,9 @@ mybatis:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
 
+snapshot:
+  storage-path: ./snapshots
+
 logging:
   level:
     com.visualspider: DEBUG
