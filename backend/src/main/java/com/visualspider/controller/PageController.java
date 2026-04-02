@@ -7,12 +7,18 @@ import com.visualspider.repository.ArticleMapper;
 import com.visualspider.repository.CrawlSessionMapper;
 import com.visualspider.repository.CrawlTaskMapper;
 import com.visualspider.repository.PageSnapshotMapper;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
+import java.net.MalformedURLException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 
 @Controller
@@ -78,5 +84,21 @@ public class PageController {
         CrawlTask task = crawlTaskMapper.findById(taskId).orElse(null);
         model.addAttribute("task", task);
         return "editor";
+    }
+
+    /**
+     * 提供快照文件（HTML/PNG）访问。
+     * path 来自 PageSnapshot.htmlPath/screenshotPath，格式为 ./snapshots/{sessionId}/{timestamp}_{hash}.html
+     * 实际文件存储在 Spring Boot 工作目录的相对路径下。
+     */
+    @GetMapping("/sessions/files/{path:.*}")
+    @ResponseBody
+    public Resource serveSnapshotFile(@PathVariable String path) throws MalformedURLException {
+        // 去掉开头的 ./（DB 存储的路径以 ./ 开头）
+        String cleanPath = path.startsWith("./") ? path.substring(2) : path;
+        // 快照文件保存在 backend/ 目录下
+        Path baseDir = Paths.get("D:/opencodeSpace/visual_spider/backend").toAbsolutePath();
+        Path filePath = baseDir.resolve(cleanPath).normalize();
+        return new UrlResource(filePath.toUri());
     }
 }
