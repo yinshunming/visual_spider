@@ -102,12 +102,12 @@
                         <td th:text="${snapshot.id}">1</td>
                         <td th:text="${snapshot.url}">https://example.com</td>
                         <td>
-                            <a th:href="@{/sessions/files/{path}(path=${snapshot.htmlPath})}" 
+                            <a th:href="@{'/sessions/files/' + ${snapshot.htmlPath}}" 
                                th:text="查看HTML" target="_blank">查看HTML</a>
                         </td>
                         <td>
                             <a th:if="${snapshot.screenshotPath != null}" 
-                               th:href="@{/sessions/files/{path}(path=${snapshot.screenshotPath})}" 
+                               th:href="@{'/sessions/files/' + ${snapshot.screenshotPath}}" 
                                th:text="查看截图" target="_blank">查看截图</a>
                             <span th:unless="${snapshot.screenshotPath != null}">-</span>
                         </td>

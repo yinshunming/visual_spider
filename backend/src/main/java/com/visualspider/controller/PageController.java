@@ -7,16 +7,15 @@ import com.visualspider.repository.ArticleMapper;
 import com.visualspider.repository.CrawlSessionMapper;
 import com.visualspider.repository.CrawlTaskMapper;
 import com.visualspider.repository.PageSnapshotMapper;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
 
-import java.net.MalformedURLException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
@@ -88,17 +87,24 @@ public class PageController {
 
     /**
      * 提供快照文件（HTML/PNG）访问。
-     * path 来自 PageSnapshot.htmlPath/screenshotPath，格式为 ./snapshots/{sessionId}/{timestamp}_{hash}.html
-     * 实际文件存储在 Spring Boot 工作目录的相对路径下。
      */
-    @GetMapping("/sessions/files/{path:.*}")
-    @ResponseBody
-    public Resource serveSnapshotFile(@PathVariable String path) throws MalformedURLException {
-        // 去掉开头的 ./（DB 存储的路径以 ./ 开头）
-        String cleanPath = path.startsWith("./") ? path.substring(2) : path;
-        // 快照文件保存在 backend/ 目录下
-        Path baseDir = Paths.get("D:/opencodeSpace/visual_spider/backend").toAbsolutePath();
-        Path filePath = baseDir.resolve(cleanPath).normalize();
-        return new UrlResource(filePath.toUri());
+    @GetMapping("/sessions/files/{sessionId}/{filename:.+}")
+    public ResponseEntity<byte[]> serveSnapshotFile(@PathVariable String sessionId, @PathVariable String filename) {
+        try {
+            Path baseDir = Paths.get("D:/opencodeSpace/visual_spider/backend/snapshots").toAbsolutePath();
+            Path filePath = baseDir.resolve(sessionId).resolve(filename).normalize();
+            java.io.File file = filePath.toFile();
+            if (!file.exists()) {
+                return ResponseEntity.notFound().build();
+            }
+            byte[] data = Files.readAllBytes(filePath);
+            String contentType = filename.endsWith(".png") ? "image/png" : "text/html";
+            return ResponseEntity.ok()
+                .header("Content-Type", contentType)
+                .body(data);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(("Error: " + e.getClass().getName() + ": " + e.getMessage()).getBytes());
+        }
     }
 }
