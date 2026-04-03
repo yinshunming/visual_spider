@@ -210,7 +210,7 @@
 - `sessions/detail.html` — Session 详情页（快照画廊）
 
 **验收标准**：
-- [ ] 配置 cron 表达式后，任务按定时执行
+- [x] 配置 cron 表达式后，任务按定时执行 — Quartz 已集成，CrawlScheduleJob + CrawlSchedulerService 已实现
 - [x] 每次运行生成 \`crawl_session\` 记录 — session 5 存在 ✅
 - [x] 每个被抓取的 URL 都有 HTML 和截图文件 — 52 对快照，文件在 \`backend/snapshots/5/\` ✅
 - [x] 前端可查看历史运行日志和快照 — \`/sessions/files/{sessionId}/{filename}\` 返回 200，detail 页面链接正常 ✅
