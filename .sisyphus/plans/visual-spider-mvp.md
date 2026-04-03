@@ -211,9 +211,14 @@
 
 **验收标准**：
 - [ ] 配置 cron 表达式后，任务按定时执行
-- [ ] 每次运行生成 `crawl_session` 记录
-- [ ] 每个被抓取的 URL 都有 HTML 和截图文件
-- [ ] 前端可查看历史运行日志和快照
+- [x] 每次运行生成 \`crawl_session\` 记录 — session 5 存在 ✅
+- [x] 每个被抓取的 URL 都有 HTML 和截图文件 — 52 对快照，文件在 \`backend/snapshots/5/\` ✅
+- [x] 前端可查看历史运行日志和快照 — \`/sessions/files/{sessionId}/{filename}\` 返回 200，detail 页面链接正常 ✅
+
+**补充交付物**：
+- \`PageController.java\` — 新增 \`GET /sessions/files/{sessionId}/{filename:.+}\` 快照访问 endpoint
+- \`fix_paths.js\` — DB 迁移脚本，将 \`page_snapshot.html_path\` 从 \`./snapshots/5/xxx\` 改为 \`5/xxx\`（54 行）
+- \`fix_detail.js\` — \`detail.html\` 链接格式修复，从 \`{path}\` 改为字符串拼接
 
 ---
 
