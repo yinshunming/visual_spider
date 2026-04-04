@@ -92,72 +92,63 @@ backend/src/main/resources/
 - Java: 24.0.1 (build 24.0.1+9-30)
 - Maven: 3.9.11
 - Spring Boot: 3.2.5
+- Playwright: 1.49.0
 
 ---
 
-## 2026-03-30
+## 2026-04-04
 
-### 已完成：M3 字段映射 + 预览 + 校验
+### 已完成：M5 Quartz 定时执行 + 快照 + 审计日志
 
 **交付物**：
-- `ExtractType` 枚举（text / html / attribute / innerText / innerHTML）
-- `FieldRule.java` - 实体类含 selectors (JSON) 和 validations (JSON)
-- `FieldRuleMapper.java` - 注解 SQL（read 用 typeHandler 反序列化，write 在 Service 层手动序列化）
-- `FieldRuleService.java` - CRUD + 校验逻辑
-- `FieldRuleController.java` - REST API（含 batch create）
-- `PreviewRequest.java`, `PreviewResult.java`, `NodeSelection.java` DTO
-- `SelectorService.previewExtraction()` - 复用选择器逻辑做预览提取
-- `editor.html` - 字段映射 UI（选择器类型/extractionType/validations 配置）
+- `CrawlScheduleJob.java` — Quartz Job，集成 SnapshotService 回调
+- `CrawlSchedulerService.java` — 调度器服务，防重叠执行
+- `SnapshotService.java` — 快照保存（HTML + PNG）
+- `SnapshotProperties.java` — 快照配置（storage-path）
+- `CrawlSessionController.java` — Session 详情 API + 快照列表
+- `sessions/detail.html` — Session 详情页（快照画廊）
+- `PageController.java` — 新增 `GET /sessions/files/{sessionId}/{filename:.+}` 快照访问 endpoint
+- `fix_paths.js` — DB 迁移脚本（`page_snapshot.html_path` 路径格式修复）
+- `fix_detail.js` — detail.html 链接格式修复
 
 **API 端点**：
-- `GET /api/field-rules` - 列表
-- `POST /api/field-rules` - 创建
-- `PUT /api/field-rules/{id}` - 更新
-- `DELETE /api/field-rules/{id}` - 删除
-- `POST /api/field-rules/batch` - 批量创建
-- `POST /api/selector/preview` - 预览提取
+- `GET /api/sessions` — Session 列表
+- `GET /api/sessions/{id}` — Session 详情
+- `GET /api/snapshots/session/{sessionId}` — 快照列表
+- `GET /sessions/files/{sessionId}/{filename:.+}` — 快照文件访问
+- `POST /api/crawl/schedules/{taskId}/run-once` — 手动触发一次
 
-**关键技术决策**：
-- MyBatis 注解限制：`@Insert`/`@Update` 不能 inline typeHandler，改为 Service 层手动 JSON 序列化
-- 读写分离：read 用 typeHandler 反序列化，write 用 ObjectMapper 序列化
+**验收结果**：
+- session 5 存在 ✅
+- `backend/snapshots/5/` 有 52 对快照文件（HTML + PNG）✅
+- `/sessions/files/{sessionId}/{filename}` 返回 200 ✅
 
-**Git commit**: `eedd59f fix: 修复 field-rules batch 500 错误 — 手动 JSON 序列化实现读写分离`
+---
 
-### 已完成：M4 Schema 修复（前置工作）
+### 已完成：M6 MVP 端到端验证
 
-**发现问题**：
-- `V1__init_schema.sql` 中 `crawl_task` 表列名为 `url_pattern`, `status`
-- `CrawlTask.java` 实体字段为 `seedUrl`, `paginationSelector`, `paginationType`, `detailUrlPattern`, `maxPages`, `enabled`
-- `CrawlTaskMapper.java` insert/update SQL 已使用新列名，与数据库实际不匹配
+**已修复 bug**：
+- `sessions/index.html` 500 错误：Thymeleaf HTTP session 保留字与 model attribute `session` 冲突
+  - 修复：`PageController.sessions()` → `model.addAttribute("crawlSessions", ...)`
+  - 修复：`sessions/index.html` → `${sessions}` → `${crawlSessions}`，循环变量 `session` → `cs`
 
-**修复**：
-- 创建 `V2__fix_crawl_task_columns.sql` - 添加新列并迁移数据
+**API 端点验证**：
+| 端点 | 状态 |
+|------|------|
+| `GET /tasks` | 200 ✅ |
+| `GET /articles` | 200 ✅ |
+| `GET /sessions` | 200 ✅ |
+| `GET /sessions/detail?sessionId=5` | 200 ✅ |
+| `GET /sessions/files/5/xxx.png` | 200 ✅ |
 
-### 进行中：M4 递归翻页抓取
+**编译验证**：`mvn clean package -DskipTests` → BUILD SUCCESS ✅
 
-**已完成**：
-- `CrawlExecutionService.java` - 核心抓取逻辑（翻页循环 + 详情页提取 + URL去重）
-- `CrawlController.java` - `POST /api/crawl/start/{taskId}` 手动触发接口
-- `V2__fix_crawl_task_columns.sql` - Schema 修复迁移脚本
-- `mvn compile` 通过
+**已知限制（MVP 范围外）**：
+- 超时重试策略未实现（`navigate` 60s 超时直接抛异常）
+- 结果分页未实现（列表页一次性 `findAll()`）
+- 前端 console error 未在浏览器验证
 
-**URL 去重机制**：
-```
-seenUrls (HashSet) → 跳过同一批次中的重复 URL
-articleMapper.findByUrl() → 跳过已抓取过的 URL
-```
-
-**已完成**：
-- 应用 V2 migration 到数据库（Docker 已运行，已手动执行 SQL，列已存在）
-- 端到端集成测试（Spring Boot 已启动，`POST /api/crawl/start/1` 返回成功）
-- Git commit `73a8d32` 已推送
-
-**端到端测试结果**：
-```
-POST /api/crawl/start/1
-→ {"success":true,"pagesCrawled":1,"articlesExtracted":0}
-```
-新浪网 0 articles 为配置问题（页面结构变化），代码逻辑正常。
+---
 
 ### 环境信息
 - Java: 24.0.1 (build 24.0.1+9-30)

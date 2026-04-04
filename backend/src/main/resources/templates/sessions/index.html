@@ -39,11 +39,11 @@
     <main class="container">
         <div class="card">
             <h2>运行日志</h2>
-            <div class="empty-state" th:if="${#lists.isEmpty(sessions)}">
+            <div class="empty-state" th:if="${#lists.isEmpty(crawlSessions)}">
                 <p>暂无运行记录</p>
                 <p style="margin-top: 10px;">执行抓取任务后将在此显示日志</p>
             </div>
-            <table th:unless="${#lists.isEmpty(sessions)}">
+            <table th:unless="${#lists.isEmpty(crawlSessions)}">
                 <thead>
                     <tr>
                         <th>ID</th>
@@ -57,18 +57,18 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr th:each="session : ${sessions}">
-                        <td th:text="${session.id}">1</td>
-                        <td th:text="${session.taskId}">1</td>
-                        <td th:text="${#temporals.format(session.startTime, 'yyyy-MM-dd HH:mm:ss')}">2024-01-01 10:00</td>
-                        <td th:text="${session.endTime != null ? #temporals.format(session.endTime, 'yyyy-MM-dd HH:mm:ss') : '-'}">2024-01-01 10:05</td>
+                    <tr th:each="cs : ${crawlSessions}">
+                        <td th:text="${cs.id}">1</td>
+                        <td th:text="${cs.taskId}">1</td>
+                        <td th:text="${#temporals.format(cs.startTime, 'yyyy-MM-dd HH:mm:ss')}">2024-01-01 10:00</td>
+                        <td th:text="${cs.endTime != null ? #temporals.format(cs.endTime, 'yyyy-MM-dd HH:mm:ss') : '-'}">2024-01-01 10:05</td>
                         <td>
-                            <span th:text="${session.status}" 
-                                  th:class="${session.status == 'COMPLETED' ? 'status-completed' : (session.status == 'FAILED' ? 'status-failed' : 'status-running')}">RUNNING</span>
+                            <span th:text="${cs.status}" 
+                                  th:class="${cs.status == 'COMPLETED' ? 'status-completed' : (cs.status == 'FAILED' ? 'status-failed' : 'status-running')}">RUNNING</span>
                         </td>
-                        <td th:text="${session.pagesCrawled}">0</td>
-                        <td th:text="${session.articlesExtracted}">0</td>
-                        <td><a th:href="@{/sessions/{id}(id=${session.id})}">查看快照</a></td>
+                        <td th:text="${cs.pagesCrawled}">0</td>
+                        <td th:text="${cs.articlesExtracted}">0</td>
+                        <td><a th:href="@{/sessions/{id}(id=${cs.id})}">查看快照</a></td>
                     </tr>
                 </tbody>
             </table>

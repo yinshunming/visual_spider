@@ -57,8 +57,8 @@ public class PageController {
 
     @GetMapping("/sessions")
     public String sessions(Model model) {
-        List<CrawlSession> sessions = crawlSessionMapper.findAll();
-        model.addAttribute("sessions", sessions);
+        List<CrawlSession> crawlSessions = crawlSessionMapper.findAll();
+        model.addAttribute("crawlSessions", crawlSessions);
         return "sessions/index";
     }
 

@@ -1,5 +1,5 @@
 {
-  "active_plan": "D:\\opencodeSpace\\visual_spider\\.sisyphus\\plans\\visual-spider-mvp.md",
+  "active_plan": "D:\\\\opencodeSpace\\\\visual_spider\\\\.sisyphus\\\\plans\\\\visual-spider-mvp.md",
   "plan_name": "visual-spider-mvp",
   "started_at": "2026-03-28T22:30:00+08:00",
   "session_ids": [
@@ -26,16 +26,19 @@
     "ses_2b6a41779ffelxJ8QYW1o6MTc9",
     "ses_2b6a48419ffeqgA0ZeWTYlgQYa",
     "ses_2b6a4b489ffe59ywTvCJQqiqml",
-    "ses_2b6a45ec9ffeI6NAl3cbBQdAgq"
+    "ses_2b6a45ec9ffeI6NAl3cbBQdAgq",
+    "ses_2a9d71750ffeIvtIqp3EGhZCTw"
   ],
-  "current_milestone": "M5",
+  "current_milestone": "MVP",
   "completed_milestones": [
     "M1",
     "M2",
     "M3",
-    "M4"
+    "M4",
+    "M5",
+    "M6"
   ],
-  "next_milestone": "M5",
+  "next_milestone": null,
   "worktree_path": null,
   "task_sessions": {}
 }
