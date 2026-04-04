@@ -2,6 +2,7 @@ package com.visualspider.controller;
 
 import com.visualspider.domain.PageSnapshot;
 import com.visualspider.repository.PageSnapshotMapper;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -39,7 +40,7 @@ public class PageSnapshotController {
     public ResponseEntity<Void> create(@RequestBody PageSnapshot snapshot) {
         snapshot.setCreatedAt(LocalDateTime.now());
         pageSnapshotMapper.insert(snapshot);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @DeleteMapping("/{id}")

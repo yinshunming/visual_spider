@@ -2,6 +2,7 @@ package com.visualspider.controller;
 
 import com.visualspider.domain.Article;
 import com.visualspider.repository.ArticleMapper;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -38,7 +39,7 @@ public class ArticleController {
             article.setStatus("pending");
         }
         articleMapper.insert(article);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @PutMapping("/{id}")
