@@ -48,6 +48,27 @@ public class PageController {
         return "tasks/index";
     }
 
+    @GetMapping("/tasks/new")
+    public String newTask() {
+        return "tasks/new";
+    }
+
+    @GetMapping("/tasks/{id}/run")
+    public String runTask(@PathVariable Long id) {
+        return "redirect:/editor/" + id;
+    }
+
+    @GetMapping("/tasks/{id}")
+    public String taskDetail(@PathVariable Long id, Model model) {
+        var taskOpt = crawlTaskMapper.findById(id);
+        if (taskOpt.isEmpty()) {
+            return "redirect:/tasks";
+        }
+        model.addAttribute("task", taskOpt.get());
+        model.addAttribute("sessions", crawlSessionMapper.findByTaskId(id));
+        return "tasks/detail";
+    }
+
     @GetMapping("/articles")
     public String articles(Model model) {
         List<Article> articles = articleMapper.findAll();
@@ -64,12 +85,17 @@ public class PageController {
 
     @GetMapping("/sessions/detail")
     public String sessionDetail(@RequestParam Long sessionId, Model model) {
-        var sessionOpt = crawlSessionMapper.findById(sessionId);
+        return sessionDetailPath(sessionId, model);
+    }
+
+    @GetMapping("/sessions/{id}")
+    public String sessionDetailPath(@PathVariable Long id, Model model) {
+        var sessionOpt = crawlSessionMapper.findById(id);
         if (sessionOpt.isEmpty()) {
             return "redirect:/sessions";
         }
         model.addAttribute("session", sessionOpt.get());
-        model.addAttribute("snapshots", pageSnapshotMapper.findBySessionId(sessionId));
+        model.addAttribute("snapshots", pageSnapshotMapper.findBySessionId(id));
         return "sessions/detail";
     }
 

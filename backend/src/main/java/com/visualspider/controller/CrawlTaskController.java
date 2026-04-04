@@ -2,6 +2,7 @@ package com.visualspider.controller;
 
 import com.visualspider.domain.CrawlTask;
 import com.visualspider.repository.CrawlTaskMapper;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,7 +32,7 @@ public class CrawlTaskController {
     }
 
     @PostMapping
-    public ResponseEntity<Void> create(@RequestBody CrawlTask task) {
+    public ResponseEntity<Long> create(@RequestBody CrawlTask task) {
         task.setCreatedAt(LocalDateTime.now());
         task.setUpdatedAt(LocalDateTime.now());
         if (task.getEnabled() == null) {
@@ -41,7 +42,7 @@ public class CrawlTaskController {
             task.setMaxPages(10);
         }
         crawlTaskMapper.insert(task);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.status(HttpStatus.CREATED).body(task.getId());
     }
 
     @PutMapping("/{id}")
