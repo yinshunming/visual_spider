@@ -282,3 +282,30 @@ Tests run: 88, Failures: 0, Errors: 0, Skipped: 0
 
 **关键文件变更**：
 - `CrawlExecutionService.java`：增加 waitForSelector、独立 Page、MAX_ARTICLES_PER_PAGE 常量、超时 120s
+
+---
+
+## 2026-04-05
+
+### 已完成：新需求 — 任务删除按钮 + 状态切换控件
+
+**需求**：
+- `tasks/index.html` 和 `tasks/detail.html` 添加删除按钮
+- 状态切换控件：`enabled=true` 时下拉框 disabled（不可改为 disabled 状态）
+- `enabled=false` 时可正常切换为 enabled
+
+**改动文件**：
+
+1. `CrawlTaskController.java` — 新增 `PATCH /{id}/enabled` 接口
+   - enabled=true → 已启用（不可改）
+   - enabled=false → 已禁用（可改为 enabled）
+
+2. `tasks/index.html` — 列表页：CSS `.btn-danger`、`.status-select`、状态列 `<select>` 下拉框、操作列删除按钮
+
+3. `tasks/detail.html` — 详情页：CSS 同上、状态行 `<select>` 下拉框、操作区删除按钮
+
+**API 验证**：
+- `PATCH /api/tasks/{id}/enabled` — ✅ 200 OK
+- `DELETE /api/tasks/{id}` — ✅ 200 OK
+
+**Git Commit**：`4c893bb`
