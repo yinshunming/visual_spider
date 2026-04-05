@@ -309,3 +309,22 @@ Tests run: 88, Failures: 0, Errors: 0, Skipped: 0
 - `DELETE /api/tasks/{id}` — ✅ 200 OK
 
 **Git Commit**：`4c893bb`
+
+---
+
+### 已完成：修复 startCrawl 不创建 CrawlSession bug
+
+**问题**：`POST /api/crawl/start/{id}` 执行后，`tasks/detail.html` 的"运行历史"表格为空。
+
+**根因**：`startCrawl()` 调用 `crawlExecutionService.execute(taskId)` 单参数版本，该版本**不创建任何 CrawlSession 记录**。而 `tasks/detail.html` 依赖 `crawlSessionMapper.findByTaskId(id)` 查询，无记录所以表格为空。
+
+**修复**：`CrawlController.startCrawl()` 增加 session 创建/更新逻辑
+- 执行前：`crawlSessionMapper.insert(session)` — 创建 RUNNING 状态记录
+- 执行后：`crawlSessionMapper.update(session)` — 更新 SUCCESS/FAILED + pagesCrawled/articlesExtracted
+- 快照回调：复用 `snapshotService.saveSnapshot()`
+
+**API 验证**：
+- `POST /api/crawl/start/2` → `{"success":true,"sessionId":6,"pagesCrawled":1,"articlesExtracted":0}`
+- `GET /api/sessions/6` → `{"id":6,"taskId":2,"status":"SUCCESS",...}` ✅
+
+**Git Commit**：`6dd0488`
