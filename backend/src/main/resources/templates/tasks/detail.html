@@ -91,7 +91,7 @@
             <h2>操作</h2>
             <div class="btn-group">
                 <a class="btn btn-success" th:href="@{/editor/{id}(id=${task.id})}">运行任务</a>
-                <button class="btn" onclick="startCrawl()">开始爬取</button>
+                <button class="btn" th:attr="onclick='startCrawl(' + ${task.id} + ')'">开始爬取</button>
             </div>
             <div id="crawl-result" style="display:none; margin-top: 15px; padding: 15px; border-radius: 4px;"></div>
         </div>
@@ -134,9 +134,8 @@
         </div>
     </main>
 
-    <script>
-        function startCrawl() {
-            const taskId = /*[[${task.id}]]*/ 1;
+    <script th:inline="javascript">
+        function startCrawl(taskId) {
             const resultDiv = document.getElementById('crawl-result');
             resultDiv.style.display = 'block';
             resultDiv.style.background = '#f8f9fa';
