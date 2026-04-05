@@ -55,22 +55,53 @@ public class CrawlController {
      */
     @PostMapping("/start/{taskId}")
     public ResponseEntity<?> startCrawl(@PathVariable Long taskId) {
+        // 创建 audit session
+        CrawlSession session = new CrawlSession();
+        session.setTaskId(taskId);
+        session.setStartTime(LocalDateTime.now());
+        session.setStatus("RUNNING");
+        crawlSessionMapper.insert(session);
+        Long sessionId = session.getId();
+
+        // 构建快照回调
+        java.util.function.Consumer<com.microsoft.playwright.Page> snapshotCallback = page -> {
+            snapshotService.saveSnapshot(page, sessionId, page.url());
+        };
+
         try {
-            var result = crawlExecutionService.execute(taskId);
+            var result = crawlExecutionService.execute(taskId, snapshotCallback);
+            // 更新 session
+            session.setEndTime(LocalDateTime.now());
+            session.setPagesCrawled(result.pagesCrawled());
+            session.setArticlesExtracted(result.articlesExtracted());
+            session.setStatus(result.errors().isEmpty() ? "SUCCESS" : "FAILED");
+            session.setErrorMessage(result.errors().isEmpty() ? null : String.join("; ", result.errors()));
+            crawlSessionMapper.update(session);
             return ResponseEntity.ok(Map.of(
                 "success", true,
+                "sessionId", sessionId,
                 "pagesCrawled", result.pagesCrawled(),
                 "articlesExtracted", result.articlesExtracted(),
                 "errors", result.errors()
             ));
         } catch (IllegalArgumentException e) {
+            session.setEndTime(LocalDateTime.now());
+            session.setStatus("FAILED");
+            session.setErrorMessage(e.getMessage());
+            crawlSessionMapper.update(session);
             return ResponseEntity.badRequest().body(Map.of(
                 "success", false,
+                "sessionId", sessionId,
                 "error", e.getMessage()
             ));
         } catch (Exception e) {
+            session.setEndTime(LocalDateTime.now());
+            session.setStatus("FAILED");
+            session.setErrorMessage("Crawl failed: " + e.getMessage());
+            crawlSessionMapper.update(session);
             return ResponseEntity.internalServerError().body(Map.of(
                 "success", false,
+                "sessionId", sessionId,
                 "error", "Crawl failed: " + e.getMessage()
             ));
         }
