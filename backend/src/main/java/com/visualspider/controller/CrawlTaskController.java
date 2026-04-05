@@ -62,4 +62,26 @@ public class CrawlTaskController {
         crawlTaskMapper.deleteById(id);
         return ResponseEntity.ok().build();
     }
+
+    /**
+     * 仅切换任务启用状态
+     * PATCH /api/tasks/{id}/enabled
+     * enabled=true → 已启用（不可再改为 disabled）
+     * enabled=false → 已禁用（可改为 enabled）
+     */
+    @PatchMapping("/{id}/enabled")
+    public ResponseEntity<Void> updateEnabled(@PathVariable Long id, @RequestBody java.util.Map<String, Boolean> body) {
+        Boolean enabled = body.get("enabled");
+        if (enabled == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        return crawlTaskMapper.findById(id)
+                .map(existing -> {
+                    existing.setEnabled(enabled);
+                    existing.setUpdatedAt(LocalDateTime.now());
+                    crawlTaskMapper.update(existing);
+                    return ResponseEntity.ok().<Void>build();
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
 }

@@ -34,6 +34,10 @@
         .status-running { color: orange; }
         .status-enabled { color: green; }
         .status-disabled { color: gray; }
+        .btn-danger { display: inline-block; padding: 10px 20px; background: #e74c3c; color: white; text-decoration: none; border-radius: 4px; border: none; cursor: pointer; }
+        .btn-danger:hover { background: #c0392b; }
+        .status-select { padding: 6px 10px; border-radius: 4px; border: 1px solid #ddd; font-size: 14px; }
+        .status-select:disabled { background: #ecf0f1; color: #999; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -60,8 +64,12 @@
                 <span class="detail-value" th:text="${task.seedUrl}">https://example.com</span>
 
                 <span class="detail-label">状态</span>
-                <span class="detail-value" th:class="${task.enabled ? 'status-enabled' : 'status-disabled'}"
-                      th:text="${task.enabled ? '已启用' : '已禁用'}">已启用</span>
+                <select class="status-select" 
+                        th:disabled="${task.enabled}"
+                        th:attr="onchange='toggleEnabled(' + ${task.id} + ', this.value)'">
+                    <option value="true" th:selected="${task.enabled}">已启用</option>
+                    <option value="false" th:selected="!${task.enabled}">已禁用</option>
+                </select>
 
                 <span class="detail-label">分页选择器</span>
                 <span class="detail-value" th:text="${task.paginationSelector ?: '-'}">-</span>
@@ -92,6 +100,7 @@
             <div class="btn-group">
                 <a class="btn btn-success" th:href="@{/editor/{id}(id=${task.id})}">运行任务</a>
                 <button class="btn" th:attr="onclick='startCrawl(' + ${task.id} + ')'">开始爬取</button>
+                <button class="btn-danger" th:attr="onclick='deleteTask(' + ${task.id} + ')'">删除任务</button>
             </div>
             <div id="crawl-result" style="display:none; margin-top: 15px; padding: 15px; border-radius: 4px;"></div>
         </div>
@@ -157,6 +166,27 @@
                     resultDiv.style.background = '#f8d7da';
                     resultDiv.textContent = '请求失败: ' + err.message;
                 });
+        }
+        function toggleEnabled(taskId, enabled) {
+            fetch('/api/tasks/' + taskId + '/enabled', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: enabled === 'true' })
+            })
+            .then(function(res) {
+                if (res.ok) { location.reload(); }
+                else { alert('状态更新失败'); location.reload(); }
+            })
+            .catch(function(err) { alert('请求失败: ' + err.message); location.reload(); });
+        }
+        function deleteTask(taskId) {
+            if (!confirm('确定要删除该任务吗？')) return;
+            fetch('/api/tasks/' + taskId, { method: 'DELETE' })
+            .then(function(res) {
+                if (res.ok) { location.href = '/tasks'; }
+                else { alert('删除失败'); }
+            })
+            .catch(function(err) { alert('请求失败: ' + err.message); });
         }
     </script>
 </body>

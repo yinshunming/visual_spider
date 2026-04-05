@@ -25,6 +25,10 @@
         a:hover { text-decoration: underline; }
         .status-enabled { color: green; }
         .status-disabled { color: gray; }
+        .btn-danger { display: inline-block; padding: 4px 12px; background: #e74c3c; color: white; text-decoration: none; border-radius: 4px; border: none; cursor: pointer; font-size: 12px; }
+        .btn-danger:hover { background: #c0392b; }
+        .status-select { padding: 4px 8px; border-radius: 4px; border: 1px solid #ddd; font-size: 12px; }
+        .status-select:disabled { background: #ecf0f1; color: #999; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -66,18 +70,46 @@
                         <td th:text="${task.name}">示例任务</td>
                         <td th:text="${task.seedUrl}">https://example.com</td>
                         <td>
-                            <span th:text="${task.enabled ? '已启用' : '已禁用'}" 
-                                  th:class="${task.enabled ? 'status-enabled' : 'status-disabled'}">已启用</span>
+                            <select class="status-select" 
+                                    th:disabled="${task.enabled}"
+                                    th:attr="onchange='toggleEnabled(' + ${task.id} + ', this.value)'">
+                                <option value="true" th:selected="${task.enabled}">已启用</option>
+                                <option value="false" th:selected="!${task.enabled}">已禁用</option>
+                            </select>
                         </td>
                         <td th:text="${#temporals.format(task.createdAt, 'yyyy-MM-dd HH:mm')}">2024-01-01</td>
                         <td>
                             <a th:href="@{/tasks/{id}(id=${task.id})}">编辑</a>
                             <a th:href="@{/tasks/{id}/run(id=${task.id})}">执行</a>
+                            <button class="btn-danger" th:attr="onclick='deleteTask(' + ${task.id} + ')'">删除</button>
                         </td>
                     </tr>
                 </tbody>
             </table>
         </div>
     </main>
+    <script th:inline="javascript">
+        function toggleEnabled(taskId, enabled) {
+            fetch('/api/tasks/' + taskId + '/enabled', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: enabled === 'true' })
+            })
+            .then(function(res) {
+                if (res.ok) { location.reload(); }
+                else { alert('状态更新失败'); location.reload(); }
+            })
+            .catch(function(err) { alert('请求失败: ' + err.message); location.reload(); });
+        }
+        function deleteTask(taskId) {
+            if (!confirm('确定要删除该任务吗？')) return;
+            fetch('/api/tasks/' + taskId, { method: 'DELETE' })
+            .then(function(res) {
+                if (res.ok) { location.reload(); }
+                else { alert('删除失败'); }
+            })
+            .catch(function(err) { alert('请求失败: ' + err.message); });
+        }
+    </script>
 </body>
 </html>
