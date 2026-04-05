@@ -43,6 +43,8 @@ import java.util.regex.Pattern;
 public class CrawlExecutionService {
 
     private static final Logger log = LoggerFactory.getLogger(CrawlExecutionService.class);
+    // 每页最多爬取的文章数量
+    private static final int MAX_ARTICLES_PER_PAGE = 10;
 
     private final Browser browser;
     private final CrawlTaskMapper crawlTaskMapper;
@@ -121,7 +123,7 @@ public class CrawlExecutionService {
             // 5. 打开首页
             listPage = browser.newPage();
             listPage.navigate(seedUrl, new Page.NavigateOptions().setTimeout(60000));
-            listPage.waitForLoadState(LoadState.DOMCONTENTLOADED);
+            listPage.waitForLoadState(LoadState.LOAD);
             if (onPageCrawled != null) {
                 onPageCrawled.accept(listPage);
             }
@@ -136,8 +138,13 @@ public class CrawlExecutionService {
                 List<String> detailUrls = extractDetailUrls(listPage, detailUrlPattern);
                 log.info("crawl_urls_found pageNum={} count={}", pageNum + 1, detailUrls.size());
 
-                // 6b. 遍历每个详情页 URL
+                // 6b. 遍历每个详情页 URL（每页最多 MAX_ARTICLES_PER_PAGE 篇）
+                int pageArticleCount = 0;
                 for (String detailUrl : detailUrls) {
+                    if (pageArticleCount >= MAX_ARTICLES_PER_PAGE) {
+                        log.info("crawl_page_article_limit_reached pageNum={} limit={}", pageNum + 1, MAX_ARTICLES_PER_PAGE);
+                        break;
+                    }
                     if (seenUrls.contains(detailUrl)) {
                         continue;
                     }
@@ -150,11 +157,12 @@ public class CrawlExecutionService {
                     }
 
                     try {
-                        // 在当前 tab 导航到详情页（也可以用 new Page() 开新标签）
-                        Article article = extractArticle(listPage, detailUrl, parsedRules, task.getName(), onPageCrawled);
+                        // 新建 Page 打开详情页，不污染 listPage（保留列表页翻页能力）
+                        Article article = extractArticle(detailUrl, parsedRules, task.getName(), onPageCrawled);
                         if (article != null) {
                             articleMapper.insert(article);
                             articlesExtracted++;
+                            pageArticleCount++;
                             log.info("crawl_article_saved url={} title={}", 
                                 detailUrl, 
                                 article.getTitle() != null ? article.getTitle().substring(0, Math.min(50, article.getTitle().length())) : "N/A");
@@ -271,67 +279,90 @@ public class CrawlExecutionService {
     /**
      * 提取单个详情页的 Article
      * 
-     * @param listPage 当前列表页（用于导航到详情页）
      * @param detailUrl 详情页 URL
      * @param parsedRules 已解析的字段规则
      * @param taskName 任务名（作为 source）
+     * @param onPageCrawled 页面抓取回调（在新 Page 上触发）
      */
-    private Article extractArticle(Page listPage, String detailUrl, 
+    private Article extractArticle(String detailUrl, 
                                    List<ParsedFieldRule> parsedRules, String taskName,
                                    java.util.function.Consumer<Page> onPageCrawled) {
-        // 导航到详情页
-        listPage.navigate(detailUrl, new Page.NavigateOptions().setTimeout(60000));
-        listPage.waitForLoadState(LoadState.DOMCONTENTLOADED);
-        if (onPageCrawled != null) {
-            onPageCrawled.accept(listPage);
-        }
-
-        Article article = new Article();
-        article.setUrl(detailUrl);
-        article.setSource(taskName);
-        article.setStatus("CRAWLED");
-        article.setCreatedAt(LocalDateTime.now());
-        article.setUpdatedAt(LocalDateTime.now());
-
-        boolean hasContent = false;
-
-        for (ParsedFieldRule rule : parsedRules) {
-            String fieldCode = rule.fieldCode;
-            String extracted = extractField(listPage, rule.selectors, rule.extractType, rule.attributeName);
-
-            // 校验
-            List<String> validationErrors = fieldRuleService.validate(extracted, rule.validations);
-            if (!validationErrors.isEmpty()) {
-                log.debug("field_validation_failed fieldCode={} url={} errors={}", 
-                    fieldCode, detailUrl, validationErrors);
+        // 新建独立 Page 打开详情页，不影响 listPage（列表页翻页）
+        Page detailPage = null;
+        try {
+            detailPage = browser.newPage();
+            // 新浪页面广告多，增加超时到 120s
+            detailPage.navigate(detailUrl, new Page.NavigateOptions().setTimeout(120000));
+            detailPage.waitForLoadState(LoadState.LOAD);
+            // 等待 JS 渲染内容（LoadState.LOAD 之后内容还未渲染，需显式等 h1.main-title）
+            try {
+                detailPage.waitForSelector("h1.main-title", 
+                    new Page.WaitForSelectorOptions().setTimeout(30000));
+            } catch (PlaywrightException e) {
+                log.warn("wait_for_content_timeout url={} error={}", detailUrl, e.getMessage());
+            }
+            if (onPageCrawled != null) {
+                onPageCrawled.accept(detailPage);
             }
 
-            // 设置字段
-            switch (fieldCode) {
-                case "title" -> {
-                    article.setTitle(extracted);
-                    if (extracted != null && !extracted.isBlank()) hasContent = true;
+            Article article = new Article();
+            article.setUrl(detailUrl);
+            article.setSource(taskName);
+            article.setStatus("CRAWLED");
+            article.setCreatedAt(LocalDateTime.now());
+            article.setUpdatedAt(LocalDateTime.now());
+
+            boolean hasContent = false;
+
+            for (ParsedFieldRule rule : parsedRules) {
+                String fieldCode = rule.fieldCode;
+                String extracted = extractField(detailPage, rule.selectors, rule.extractType, rule.attributeName);
+
+                // DEBUG 日志：打印每个字段的提取结果
+                log.debug("crawl_field_extract fieldCode={} extracted_len={} url={}",
+                    fieldCode,
+                    extracted != null ? extracted.length() : 0,
+                    detailUrl);
+
+                // 校验
+                List<String> validationErrors = fieldRuleService.validate(extracted, rule.validations);
+                if (!validationErrors.isEmpty()) {
+                    log.debug("field_validation_failed fieldCode={} url={} errors={}", 
+                        fieldCode, detailUrl, validationErrors);
                 }
-                case "content" -> {
-                    article.setContent(extracted);
-                    if (extracted != null && !extracted.isBlank()) hasContent = true;
-                }
-                case "author" -> article.setAuthor(extracted);
-                case "publish_date" -> {
-                    if (extracted != null && !extracted.isBlank()) {
-                        article.setPublishDate(parseDate(extracted));
+
+                // 设置字段
+                switch (fieldCode) {
+                    case "title" -> {
+                        article.setTitle(extracted);
+                        if (extracted != null && !extracted.isBlank()) hasContent = true;
                     }
-                }
-                case "source" -> {
-                    if (extracted != null && !extracted.isBlank()) {
-                        article.setSource(extracted);
+                    case "content" -> {
+                        article.setContent(extracted);
+                        if (extracted != null && !extracted.isBlank()) hasContent = true;
                     }
+                    case "author" -> article.setAuthor(extracted);
+                    case "publish_date" -> {
+                        if (extracted != null && !extracted.isBlank()) {
+                            article.setPublishDate(parseDate(extracted));
+                        }
+                    }
+                    case "source" -> {
+                        if (extracted != null && !extracted.isBlank()) {
+                            article.setSource(extracted);
+                        }
+                    }
+                    default -> log.warn("unknown_field_code fieldCode={}", fieldCode);
                 }
-                default -> log.warn("unknown_field_code fieldCode={}", fieldCode);
+            }
+
+            log.debug("crawl_article_extract hasContent={} url={}", hasContent, detailUrl);
+            return hasContent ? article : null;
+        } finally {
+            if (detailPage != null) {
+                detailPage.close();
             }
         }
-
-        return hasContent ? article : null;
     }
 
     /**
@@ -352,6 +383,11 @@ public class CrawlExecutionService {
                 }
 
                 int count = locator.count();
+                // DEBUG: 打印 count 和 selector
+                if (count == 0) {
+                    log.warn("extract_field_count_zero selector='{}' selectorType='{}' url='{}'", 
+                        selector, selectorType, page.url());
+                }
                 if (count > 0) {
                     String value = switch (extractType) {
                         case TEXT -> locator.first().textContent();
@@ -366,6 +402,9 @@ public class CrawlExecutionService {
 
                     if (value != null && !value.isBlank()) {
                         return value.trim();
+                    } else {
+                        log.warn("extract_field_empty selector='{}' selectorType='{}' url='{}'", 
+                            selector, selectorType, page.url());
                     }
                 }
             } catch (PlaywrightException e) {

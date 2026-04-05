@@ -239,7 +239,7 @@ Service 层单元测试（42 tests）：
 **测试结果**：
 ```
 Tests run: 88, Failures: 0, Errors: 0, Skipped: 0
-BUILD SUCCESS
+  BUILD SUCCESS
 ```
 
 ### 环境信息
@@ -247,3 +247,38 @@ BUILD SUCCESS
 - Maven: 3.9.11
 - Spring Boot: 3.2.5
 - Playwright: 1.49.0
+
+---
+
+## 2026-04-05
+
+### 已完成：Task 3 新浪 NBA 爬取 bug 修复
+
+**Bug 现象**：`POST /api/crawl/start/3` 返回 `articlesExtracted=0`
+
+**根因分析**：
+1. `detail_url_pattern` 在 DB 中存储了双转义 `\\.`（Java 字符串字面量写法），导致 Java `Pattern.compile()` 时 `\\.` 匹配"反斜杠+任意字符"，正则完全失效
+2. `#article_content` 选择器返回新浪广告 JS 代码（5730字符），而非文章正文
+3. `extractArticle()` 使用同一 Page 对象导航详情页，导致列表页翻页逻辑被污染
+4. 详情页 `waitForLoadState(LoadState.LOAD)` 触发时 JS 内容还未渲染完成
+
+**修复内容**：
+
+代码修复（`CrawlExecutionService.java`）：
+1. `detailUrlPattern` 正则修正：`https://sports\.sina\.com\.cn/basketball/nba/[0-9]{4}-[0-9]{2}-[0-9]{2}/doc-.*\.shtml`
+2. 新增 `waitForSelector("h1.main-title")` 等待 JS 渲染
+3. `extractArticle()` 改用独立 Page 对象，不污染 listPage
+4. 详情页超时从 60s 增加到 120s
+5. 新增 `MAX_ARTICLES_PER_PAGE = 10` 限制每页爬取数量
+
+数据库修复：
+- `fix_selectors.sql`：Task 1 和 Task 3 的 selector 全部修正
+- `fix_detail_url_pattern.sql`：修正 `detail_url_pattern` 为正确正则
+- Task 3 `content` selector：`#article_content` → `#article_content p`
+
+**验证结果**：
+- Task 3 爬取：`articlesExtracted = 108`（新浪 NBA 新闻 3 页 × 10 篇/页）
+- article 表数据验证：title、content、url 均正确提取
+
+**关键文件变更**：
+- `CrawlExecutionService.java`：增加 waitForSelector、独立 Page、MAX_ARTICLES_PER_PAGE 常量、超时 120s
