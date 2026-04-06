@@ -328,3 +328,58 @@ Tests run: 88, Failures: 0, Errors: 0, Skipped: 0
 - `GET /api/sessions/6` → `{"id":6,"taskId":2,"status":"SUCCESS",...}` ✅
 
 **Git Commit**：`6dd0488`
+
+---
+
+### 已完成：M7 测试覆盖 + 404 路由修复
+
+**已修复路由（404 → 200）**：
+- `GET /tasks/new` → `tasks/new` 模板（新建任务表单页）
+- `GET /tasks/{id}` → `tasks/detail` 模板（任务详情页）
+- `GET /tasks/{id}/run` → `redirect:/editor/{id}`（触发爬取）
+- `GET /sessions/{id}` → `sessions/detail` 模板（会话详情页）
+
+**控制器修复**：
+- `ArticleController.create()` — 200 → 201 CREATED
+- `PageSnapshotController.create()` — 200 → 201 CREATED
+- `CrawlTaskController.create()` — 200 → 201 CREATED + 返回 task ID
+
+**新增模板**：
+- `templates/tasks/new.html` — 任务创建表单
+- `templates/tasks/detail.html` — 任务详情页（含运行按钮和执行历史）
+
+**测试套件（88 tests，全部通过）**：
+
+MVC 层测试（46 tests）：
+- `PageControllerTest` — 14 page routes（P1–P14）
+- `CrawlTaskControllerTest` — 8 API tests（T1–T8）
+- `CrawlSessionControllerTest` — 4 API tests（S1–S4）
+- `FieldRuleControllerTest` — 4 API tests（F1–F4）
+- `ArticleControllerTest` — 5 API tests（A1–A5）
+- `PageSnapshotControllerTest` — 5 API tests（N1–N5）
+- `CrawlControllerTest` — 3 API tests（C1–C3）
+- `E2E_flowTest` — 3 E2E flow tests（X1–X3）
+
+Service 层单元测试（42 tests）：
+- `FieldRuleServiceTest` — 23 tests（validate required/minLength/regex/datetimeParse + saveBatch/listAll/listByTaskId/deleteById）
+- `CrawlSchedulerServiceTest` — 14 tests（registerSchedule/removeSchedule/tryStart/onComplete/getAllSchedules）
+- `SnapshotServiceTest` — 5 tests（正常流程 + 4种异常吞没路径）
+
+**测试基础设施**：
+- H2 内存数据库测试配置（`application-test.yml`）
+- H2 兼容 schema（`schema-test.sql`，IDENTITY 语法）
+- `BaseControllerTest` 抽象类（`@WebMvcTest` + 所有 Mapper/Service `@MockBean`）
+- pom.xml：H2 依赖、ByteBuddy 1.15.10（Java 24 兼容）、surefire JVM args
+
+**Git Commits**：
+| Commit | 内容 |
+|--------|------|
+| `31137d8` | test: add MVC test suite — 46 tests |
+| `7dbc159` | test: add Service layer unit tests — 42 tests |
+| `68b0fd2` | fix: PageController routes for 404 fixes + CrawlTaskController 201 CREATED |
+
+**测试结果**：
+```
+Tests run: 88, Failures: 0, Errors: 0, Skipped: 1
+  BUILD SUCCESS
+```
