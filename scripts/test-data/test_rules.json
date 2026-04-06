@@ -1,0 +1,52 @@
+[
+  {
+    "fieldCode": "title",
+    "selectors": [
+      {"selector": "h1.main-title", "selectorType": "CSS"},
+      {"selector": "h1#artibodyTitle", "selectorType": "CSS"}
+    ],
+    "extractType": "text",
+    "validations": [{"validationType": "required"}],
+    "taskId": 1
+  },
+  {
+    "fieldCode": "content",
+    "selectors": [
+      {"selector": "#artibody", "selectorType": "CSS"},
+      {"selector": ".article-content", "selectorType": "CSS"}
+    ],
+    "extractType": "text",
+    "validations": [{"validationType": "required"}],
+    "taskId": 1
+  },
+  {
+    "fieldCode": "author",
+    "selectors": [
+      {"selector": ".author", "selectorType": "CSS"},
+      {"selector": ".name", "selectorType": "CSS"}
+    ],
+    "extractType": "text",
+    "validations": [],
+    "taskId": 1
+  },
+  {
+    "fieldCode": "publish_date",
+    "selectors": [
+      {"selector": ".date-source .date", "selectorType": "CSS"},
+      {"selector": ".time", "selectorType": "CSS"}
+    ],
+    "extractType": "text",
+    "validations": [],
+    "taskId": 1
+  },
+  {
+    "fieldCode": "source",
+    "selectors": [
+      {"selector": ".source", "selectorType": "CSS"},
+      {"selector": ".date-source .source", "selectorType": "CSS"}
+    ],
+    "extractType": "text",
+    "validations": [],
+    "taskId": 1
+  }
+]

@@ -1,0 +1,9 @@
+{
+  "name": "SinaNewsTest",
+  "seedUrl": "http://news.sina.com.cn/",
+  "paginationSelector": "a.next",
+  "paginationType": "button",
+  "detailUrlPattern": ".*news\\.sina\\.com\\.cn/.*\\.s?html",
+  "maxPages": 2,
+  "enabled": true
+}
